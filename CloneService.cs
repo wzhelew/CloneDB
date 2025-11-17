@@ -151,13 +151,14 @@ namespace CloneDBManager
             foreach (var viewName in views)
             {
                 await using var createCmd = new MySqlCommand($"SHOW CREATE VIEW `{viewName}`;", source);
-                await using var createReader = await createCmd.ExecuteReaderAsync(cancellationToken);
+                await using var createReader = await createCmd.ExecuteReaderAsync(CommandBehavior.SingleRow, cancellationToken);
                 if (!await createReader.ReadAsync(cancellationToken))
                 {
                     continue;
                 }
 
-                var createStatement = createReader.GetString("Create View");
+                // Use the ordinal to avoid locale-dependent column name lookups (e.g., "Create View").
+                var createStatement = createReader.GetString(1);
                 await createReader.CloseAsync();
 
                 await using var dropCmd = new MySqlCommand($"DROP VIEW IF EXISTS `{viewName}`;", destination);
