@@ -341,7 +341,7 @@ namespace CloneDBManager.Forms
             this.Controls.Add(this.grpDestination);
             this.Controls.Add(this.grpSource);
             this.Name = "Form1";
-            this.Text = "CloneDBManager";
+            this.Text = "CloneDBManager версия 1.0";
             this.grpSource.ResumeLayout(false);
             this.grpSource.PerformLayout();
             this.grpDestination.ResumeLayout(false);
