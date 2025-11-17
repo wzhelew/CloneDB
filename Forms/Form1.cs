@@ -108,13 +108,13 @@ namespace CloneDBManager.Forms
 
         private static string BuildConnectionString(string host, string user, string password, string database)
         {
-            var builder = new MySql.Data.MySqlClient.MySqlConnectionStringBuilder
+            var builder = new MySqlConnector.MySqlConnectionStringBuilder
             {
                 Server = host,
                 UserID = user,
                 Password = password,
                 Database = database,
-                SslMode = MySql.Data.MySqlClient.MySqlSslMode.None
+                SslMode = MySqlConnector.MySqlSslMode.None
             };
 
             return builder.ToString();
