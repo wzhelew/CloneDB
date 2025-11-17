@@ -1,0 +1,7 @@
+C:\Users\user\git\CloneDB\obj\Debug\net5.0-windows\CloneDBManager.csproj.AssemblyReference.cache
+C:\Users\user\git\CloneDB\obj\Debug\net5.0-windows\CloneDBManager.Forms.Form1.resources
+C:\Users\user\git\CloneDB\obj\Debug\net5.0-windows\CloneDBManager.csproj.GenerateResource.cache
+C:\Users\user\git\CloneDB\obj\Debug\net5.0-windows\CloneDBManager.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\user\git\CloneDB\obj\Debug\net5.0-windows\CloneDBManager.AssemblyInfoInputs.cache
+C:\Users\user\git\CloneDB\obj\Debug\net5.0-windows\CloneDBManager.AssemblyInfo.cs
+C:\Users\user\git\CloneDB\obj\Debug\net5.0-windows\CloneDBManager.csproj.CoreCompileInputs.cache

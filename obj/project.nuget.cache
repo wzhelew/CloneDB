@@ -1,8 +1,14 @@
 {
   "version": 2,
+<<<<<<< HEAD
   "dgSpecHash": "fFF5itW+Z2WgbYbCUsTUdWxfwAk2kZbyosfaG7Pvns/vcLBzLOmdCIviaxybCv3X1rYQqvQKZTh6+dq+9XP/Lg==",
   "success": true,
   "projectFilePath": "C:\\Users\\user\\git\\CloneDB\\CloneDBManager.csproj",
+=======
+  "dgSpecHash": "E4YO3JyHdOAhTN7cg93z37ZJNU9V8Q9iSQ3ZgNNdpBc3lw9ZXIZAnCjoQInt90xm5PUwJb07zJc/v3GEXXbTAg==",
+  "success": true,
+  "projectFilePath": "C:\\Users\\user\\git\\CloneDB\\CloneDBManager\\CloneDBManager.csproj",
+>>>>>>> 5e35570dd65718135ee113c80b02dcc961c152a9
   "expectedPackageFiles": [],
   "logs": []
 }
