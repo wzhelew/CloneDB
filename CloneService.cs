@@ -49,47 +49,44 @@ namespace CloneDBManager
 
             var foreignKeys = await GetForeignKeyDefinitionsAsync(source, cancellationToken);
 
-            try
+            foreach (var table in tables)
             {
-                foreach (var table in tables)
+                cancellationToken.ThrowIfCancellationRequested();
+                log?.Invoke($"Cloning structure for table '{table.Name}'...");
+                await CloneTableAsync(source, destination, table.Name, cancellationToken);
+
+                if (table.CopyData)
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    log?.Invoke($"Cloning structure for table '{table.Name}'...");
-                    await CloneTableAsync(source, destination, table.Name, cancellationToken);
-
-                    if (table.CopyData)
-                    {
-                        log?.Invoke($"Copying data for '{table.Name}'...");
-                        await CopyDataAsync(source, destination, table.Name, cancellationToken);
-                    }
+                    log?.Invoke($"Copying data for '{table.Name}'...");
+                    await CopyDataAsync(source, destination, table.Name, cancellationToken);
                 }
-
-                if (copyViews)
-                {
-                    log?.Invoke("Cloning views...");
-                    await CloneViewsAsync(source, destination, cancellationToken);
-                }
-
-                log?.Invoke("Re-enabling foreign key checks on destination...");
-                await EnableForeignKeys(destination, cancellationToken);
-
-                log?.Invoke("Copying foreign keys after data load...");
-                await CopyForeignKeys(destination, foreignKeys, log, cancellationToken);
-
-                if (copyTriggers)
-                {
-                    log?.Invoke("Cloning triggers...");
-                    await CloneTriggersAsync(source, destination, cancellationToken);
-                }
-
-                if (copyRoutines)
-                {
-                    log?.Invoke("Cloning stored routines (functions/procedures)...");
-                    await CloneRoutinesAsync(source, destination, cancellationToken);
-                }
-
-                log?.Invoke("Cloning completed successfully.");
             }
+
+            if (copyViews)
+            {
+                log?.Invoke("Cloning views...");
+                await CloneViewsAsync(source, destination, cancellationToken);
+            }
+
+            log?.Invoke("Recreating foreign keys after data load with checks disabled...");
+            await CopyForeignKeys(destination, foreignKeys, log, cancellationToken);
+
+            log?.Invoke("Re-enabling foreign key checks on destination after foreign key creation...");
+            await EnableForeignKeys(destination, cancellationToken);
+
+            if (copyTriggers)
+            {
+                log?.Invoke("Cloning triggers...");
+                await CloneTriggersAsync(source, destination, cancellationToken);
+            }
+
+            if (copyRoutines)
+            {
+                log?.Invoke("Cloning stored routines (functions/procedures)...");
+                await CloneRoutinesAsync(source, destination, cancellationToken);
+            }
+
+            log?.Invoke("Cloning completed successfully.");
         }
 
         private static async Task CloneTableAsync(MySqlConnection source, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
