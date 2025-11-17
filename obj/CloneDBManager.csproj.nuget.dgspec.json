@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\user\\Source\\repos\\CloneDBManager\\CloneDBManager.csproj": {}
+    "C:\\Users\\user\\git\\CloneDB\\CloneDBManager\\CloneDBManager.csproj": {}
   },
   "projects": {
-    "C:\\Users\\user\\Source\\repos\\CloneDBManager\\CloneDBManager.csproj": {
+    "C:\\Users\\user\\git\\CloneDB\\CloneDBManager\\CloneDBManager.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\user\\Source\\repos\\CloneDBManager\\CloneDBManager.csproj",
+        "projectUniqueName": "C:\\Users\\user\\git\\CloneDB\\CloneDBManager\\CloneDBManager.csproj",
         "projectName": "CloneDBManager",
-        "projectPath": "C:\\Users\\user\\Source\\repos\\CloneDBManager\\CloneDBManager.csproj",
+        "projectPath": "C:\\Users\\user\\git\\CloneDB\\CloneDBManager\\CloneDBManager.csproj",
         "packagesPath": "C:\\Users\\user\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\user\\Source\\repos\\CloneDBManager\\obj\\",
+        "outputPath": "C:\\Users\\user\\git\\CloneDB\\CloneDBManager\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files\\Microsoft Visual Studio\\Shared\\NuGetPackages",
