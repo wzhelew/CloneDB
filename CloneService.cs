@@ -98,7 +98,7 @@ namespace CloneDBManager
                 return;
             }
 
-            var createStatement = reader.GetString("Create Table");
+            var createStatement = RemoveForeignKeyConstraints(reader.GetString("Create Table"));
             await reader.CloseAsync();
 
             await using var dropCmd = new MySqlCommand($"DROP TABLE IF EXISTS `{tableName}`;", destination);
@@ -420,5 +420,36 @@ ORDER BY kcu.TABLE_NAME, kcu.CONSTRAINT_NAME, kcu.ORDINAL_POSITION;";
             string UpdateRule);
 
         private static string WrapName(string name) => $"`{name}`";
+
+        private static string RemoveForeignKeyConstraints(string createStatement)
+        {
+            var lines = createStatement.Split('\n');
+            var filtered = new List<string>();
+
+            foreach (var line in lines)
+            {
+                var trimmed = line.TrimStart();
+                if (trimmed.StartsWith("CONSTRAINT `", StringComparison.OrdinalIgnoreCase) &&
+                    trimmed.Contains("FOREIGN KEY", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                filtered.Add(line);
+            }
+
+            var closingIndex = filtered.FindIndex(l => l.TrimStart().StartsWith(")", StringComparison.Ordinal));
+            if (closingIndex > 0)
+            {
+                var previousLine = filtered[closingIndex - 1];
+                var trimmedPrevious = previousLine.TrimEnd();
+                if (trimmedPrevious.EndsWith(",", StringComparison.Ordinal))
+                {
+                    filtered[closingIndex - 1] = trimmedPrevious.TrimEnd(',');
+                }
+            }
+
+            return string.Join("\n", filtered);
+        }
     }
 }
