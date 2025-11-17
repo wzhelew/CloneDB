@@ -338,9 +338,23 @@ ORDER BY kcu.TABLE_NAME, kcu.CONSTRAINT_NAME, kcu.ORDINAL_POSITION;";
 
         public static async Task CopyForeignKeys(MySqlConnection destination, IReadOnlyList<ForeignKeyDefinition> definitions, Action<string>? log, CancellationToken cancellationToken = default)
         {
+            var existingTables = await GetExistingTableNamesAsync(destination, cancellationToken);
+
             foreach (var fk in definitions)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+
+                if (!existingTables.Contains(fk.TableName))
+                {
+                    log?.Invoke($"Skipping foreign key '{fk.ConstraintName}' because table '{fk.TableName}' does not exist in the destination.");
+                    continue;
+                }
+
+                if (!existingTables.Contains(fk.ReferencedTable))
+                {
+                    log?.Invoke($"Skipping foreign key '{fk.ConstraintName}' on '{fk.TableName}' because referenced table '{fk.ReferencedTable}' is missing in the destination.");
+                    continue;
+                }
 
                 var dropSql = $"ALTER TABLE `{fk.TableName}` DROP FOREIGN KEY `{fk.ConstraintName}`;";
                 try
@@ -376,6 +390,20 @@ ORDER BY kcu.TABLE_NAME, kcu.CONSTRAINT_NAME, kcu.ORDINAL_POSITION;";
                     log?.Invoke($"Failed to create foreign key '{fk.ConstraintName}' on table '{fk.TableName}': {ex.Message}");
                 }
             }
+        }
+
+        private static async Task<HashSet<string>> GetExistingTableNamesAsync(MySqlConnection connection, CancellationToken cancellationToken)
+        {
+            const string sql = "SELECT TABLE_NAME FROM information_schema.tables WHERE table_schema = DATABASE();";
+            await using var cmd = new MySqlCommand(sql, connection);
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            var tables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                tables.Add(reader.GetString(0));
+            }
+
+            return tables;
         }
 
         private sealed class ForeignKeyDefinitionBuilder
