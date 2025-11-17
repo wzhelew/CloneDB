@@ -45,6 +45,7 @@ namespace CloneDBManager
             await destination.OpenAsync(cancellationToken);
 
 <<<<<<< ours
+<<<<<<< ours
             foreach (var table in tables)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -78,6 +79,8 @@ namespace CloneDBManager
 
             log?.Invoke("Cloning completed successfully.");
 =======
+=======
+>>>>>>> theirs
             var originalForeignKeyState = await GetForeignKeyChecksAsync(destination, cancellationToken);
             await SetForeignKeyChecksAsync(destination, 0, cancellationToken);
 
@@ -120,6 +123,9 @@ namespace CloneDBManager
             {
                 await SetForeignKeyChecksAsync(destination, originalForeignKeyState, cancellationToken);
             }
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
         }
 
@@ -277,7 +283,10 @@ namespace CloneDBManager
         }
 
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
         private static async Task<uint> GetForeignKeyChecksAsync(MySqlConnection connection, CancellationToken cancellationToken)
         {
             await using var cmd = new MySqlCommand("SELECT @@FOREIGN_KEY_CHECKS;", connection);
@@ -291,6 +300,9 @@ namespace CloneDBManager
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
         private static string WrapName(string name) => $"`{name}`";
     }
