@@ -1,14 +1,22 @@
 {
   "version": 2,
-<<<<<<< HEAD
-  "dgSpecHash": "fFF5itW+Z2WgbYbCUsTUdWxfwAk2kZbyosfaG7Pvns/vcLBzLOmdCIviaxybCv3X1rYQqvQKZTh6+dq+9XP/Lg==",
+  "dgSpecHash": "cw3NwPQgZgin2AdC7xuLmtFZyaPsJ9tB8noViMrWJfUSBORJDmqJa/lsCQ4xg/5L4CjgNmkE3QIJaPmJ0Cr9Ug==",
   "success": true,
   "projectFilePath": "C:\\Users\\user\\git\\CloneDB\\CloneDBManager.csproj",
-=======
-  "dgSpecHash": "E4YO3JyHdOAhTN7cg93z37ZJNU9V8Q9iSQ3ZgNNdpBc3lw9ZXIZAnCjoQInt90xm5PUwJb07zJc/v3GEXXbTAg==",
-  "success": true,
-  "projectFilePath": "C:\\Users\\user\\git\\CloneDB\\CloneDBManager\\CloneDBManager.csproj",
->>>>>>> 5e35570dd65718135ee113c80b02dcc961c152a9
-  "expectedPackageFiles": [],
-  "logs": []
+  "expectedPackageFiles": [
+    "C:\\Users\\user\\.nuget\\packages\\microsoft.extensions.logging.abstractions\\7.0.1\\microsoft.extensions.logging.abstractions.7.0.1.nupkg.sha512",
+    "C:\\Users\\user\\.nuget\\packages\\mysqlconnector\\2.3.7\\mysqlconnector.2.3.7.nupkg.sha512",
+    "C:\\Users\\user\\.nuget\\packages\\system.buffers\\4.5.1\\system.buffers.4.5.1.nupkg.sha512",
+    "C:\\Users\\user\\.nuget\\packages\\system.diagnostics.diagnosticsource\\7.0.2\\system.diagnostics.diagnosticsource.7.0.2.nupkg.sha512",
+    "C:\\Users\\user\\.nuget\\packages\\system.memory\\4.5.5\\system.memory.4.5.5.nupkg.sha512",
+    "C:\\Users\\user\\.nuget\\packages\\system.runtime.compilerservices.unsafe\\6.0.0\\system.runtime.compilerservices.unsafe.6.0.0.nupkg.sha512"
+  ],
+  "logs": [
+    {
+      "code": "Undefined",
+      "level": "Warning",
+      "warningLevel": 1,
+      "message": "Problem reading the cache file C:\\Users\\user\\git\\CloneDB\\obj\\project.nuget.cache : Invalid property identifier character: <. Path 'version', line 3, position 0."
+    }
+  ]
 }
