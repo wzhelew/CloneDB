@@ -44,38 +44,48 @@ namespace CloneDBManager
             await source.OpenAsync(cancellationToken);
             await destination.OpenAsync(cancellationToken);
 
-            foreach (var table in tables)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                log?.Invoke($"Cloning structure for table '{table.Name}'...");
-                await CloneTableAsync(source, destination, table.Name, cancellationToken);
+            var originalForeignKeyState = await GetForeignKeyChecksAsync(destination, cancellationToken);
+            await SetForeignKeyChecksAsync(destination, 0, cancellationToken);
 
-                if (table.CopyData)
+            try
+            {
+                foreach (var table in tables)
                 {
-                    log?.Invoke($"Copying data for '{table.Name}'...");
-                    await CopyDataAsync(source, destination, table.Name, cancellationToken);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    log?.Invoke($"Cloning structure for table '{table.Name}'...");
+                    await CloneTableAsync(source, destination, table.Name, cancellationToken);
+
+                    if (table.CopyData)
+                    {
+                        log?.Invoke($"Copying data for '{table.Name}'...");
+                        await CopyDataAsync(source, destination, table.Name, cancellationToken);
+                    }
                 }
-            }
 
-            if (copyViews)
+                if (copyViews)
+                {
+                    log?.Invoke("Cloning views...");
+                    await CloneViewsAsync(source, destination, cancellationToken);
+                }
+
+                if (copyTriggers)
+                {
+                    log?.Invoke("Cloning triggers...");
+                    await CloneTriggersAsync(source, destination, cancellationToken);
+                }
+
+                if (copyRoutines)
+                {
+                    log?.Invoke("Cloning stored routines (functions/procedures)...");
+                    await CloneRoutinesAsync(source, destination, cancellationToken);
+                }
+
+                log?.Invoke("Cloning completed successfully.");
+            }
+            finally
             {
-                log?.Invoke("Cloning views...");
-                await CloneViewsAsync(source, destination, cancellationToken);
+                await SetForeignKeyChecksAsync(destination, originalForeignKeyState, cancellationToken);
             }
-
-            if (copyTriggers)
-            {
-                log?.Invoke("Cloning triggers...");
-                await CloneTriggersAsync(source, destination, cancellationToken);
-            }
-
-            if (copyRoutines)
-            {
-                log?.Invoke("Cloning stored routines (functions/procedures)...");
-                await CloneRoutinesAsync(source, destination, cancellationToken);
-            }
-
-            log?.Invoke("Cloning completed successfully.");
         }
 
         private static async Task CloneTableAsync(MySqlConnection source, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
@@ -229,6 +239,19 @@ namespace CloneDBManager
                 await using var createDestCmd = new MySqlCommand(createStatement, destination);
                 await createDestCmd.ExecuteNonQueryAsync(cancellationToken);
             }
+        }
+
+        private static async Task<uint> GetForeignKeyChecksAsync(MySqlConnection connection, CancellationToken cancellationToken)
+        {
+            await using var cmd = new MySqlCommand("SELECT @@FOREIGN_KEY_CHECKS;", connection);
+            var result = await cmd.ExecuteScalarAsync(cancellationToken);
+            return Convert.ToUInt32(result);
+        }
+
+        private static async Task SetForeignKeyChecksAsync(MySqlConnection connection, uint value, CancellationToken cancellationToken)
+        {
+            await using var cmd = new MySqlCommand($"SET FOREIGN_KEY_CHECKS={value};", connection);
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
         private static string WrapName(string name) => $"`{name}`";
