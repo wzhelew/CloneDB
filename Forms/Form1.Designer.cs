@@ -82,7 +82,7 @@ namespace CloneDBManager.Forms
             this.btnLoadTables.Location = new System.Drawing.Point(20, 178);
             this.btnLoadTables.Name = "btnLoadTables";
             this.btnLoadTables.Size = new System.Drawing.Size(360, 35);
-            this.btnLoadTables.TabIndex = 8;
+            this.btnLoadTables.TabIndex = 5;
             this.btnLoadTables.Text = "Load Tables";
             this.btnLoadTables.UseVisualStyleBackColor = true;
             this.btnLoadTables.Click += new System.EventHandler(this.btnLoadTables_Click);
@@ -92,7 +92,7 @@ namespace CloneDBManager.Forms
             this.txtSourceDatabase.Location = new System.Drawing.Point(96, 145);
             this.txtSourceDatabase.Name = "txtSourceDatabase";
             this.txtSourceDatabase.Size = new System.Drawing.Size(284, 27);
-            this.txtSourceDatabase.TabIndex = 7;
+            this.txtSourceDatabase.TabIndex = 4;
             //
             // label4
             //
@@ -109,7 +109,7 @@ namespace CloneDBManager.Forms
             this.txtSourcePassword.Name = "txtSourcePassword";
             this.txtSourcePassword.PasswordChar = '*';
             this.txtSourcePassword.Size = new System.Drawing.Size(284, 27);
-            this.txtSourcePassword.TabIndex = 5;
+            this.txtSourcePassword.TabIndex = 3;
             //
             // label3
             // 
@@ -125,7 +125,7 @@ namespace CloneDBManager.Forms
             this.txtSourceUser.Location = new System.Drawing.Point(96, 79);
             this.txtSourceUser.Name = "txtSourceUser";
             this.txtSourceUser.Size = new System.Drawing.Size(284, 27);
-            this.txtSourceUser.TabIndex = 3;
+            this.txtSourceUser.TabIndex = 2;
             //
             // label2
             //
@@ -141,7 +141,7 @@ namespace CloneDBManager.Forms
             this.txtSourcePort.Location = new System.Drawing.Point(96, 46);
             this.txtSourcePort.Name = "txtSourcePort";
             this.txtSourcePort.Size = new System.Drawing.Size(284, 27);
-            this.txtSourcePort.TabIndex = 9;
+            this.txtSourcePort.TabIndex = 1;
             //
             // label10
             //
@@ -157,7 +157,7 @@ namespace CloneDBManager.Forms
             this.txtSourceHost.Location = new System.Drawing.Point(96, 13);
             this.txtSourceHost.Name = "txtSourceHost";
             this.txtSourceHost.Size = new System.Drawing.Size(284, 27);
-            this.txtSourceHost.TabIndex = 1;
+            this.txtSourceHost.TabIndex = 0;
             // 
             // label1
             // 
@@ -192,7 +192,7 @@ namespace CloneDBManager.Forms
             this.txtDestinationDatabase.Location = new System.Drawing.Point(96, 145);
             this.txtDestinationDatabase.Name = "txtDestinationDatabase";
             this.txtDestinationDatabase.Size = new System.Drawing.Size(284, 27);
-            this.txtDestinationDatabase.TabIndex = 7;
+            this.txtDestinationDatabase.TabIndex = 4;
             //
             // label8
             //
@@ -209,7 +209,7 @@ namespace CloneDBManager.Forms
             this.txtDestinationPassword.Name = "txtDestinationPassword";
             this.txtDestinationPassword.PasswordChar = '*';
             this.txtDestinationPassword.Size = new System.Drawing.Size(284, 27);
-            this.txtDestinationPassword.TabIndex = 5;
+            this.txtDestinationPassword.TabIndex = 3;
             // 
             // label7
             // 
@@ -225,7 +225,7 @@ namespace CloneDBManager.Forms
             this.txtDestinationUser.Location = new System.Drawing.Point(96, 79);
             this.txtDestinationUser.Name = "txtDestinationUser";
             this.txtDestinationUser.Size = new System.Drawing.Size(284, 27);
-            this.txtDestinationUser.TabIndex = 3;
+            this.txtDestinationUser.TabIndex = 2;
             //
             // label6
             //
@@ -241,7 +241,7 @@ namespace CloneDBManager.Forms
             this.txtDestinationPort.Location = new System.Drawing.Point(96, 46);
             this.txtDestinationPort.Name = "txtDestinationPort";
             this.txtDestinationPort.Size = new System.Drawing.Size(284, 27);
-            this.txtDestinationPort.TabIndex = 9;
+            this.txtDestinationPort.TabIndex = 1;
             //
             // label11
             //
@@ -257,7 +257,7 @@ namespace CloneDBManager.Forms
             this.txtDestinationHost.Location = new System.Drawing.Point(96, 13);
             this.txtDestinationHost.Name = "txtDestinationHost";
             this.txtDestinationHost.Size = new System.Drawing.Size(284, 27);
-            this.txtDestinationHost.TabIndex = 1;
+            this.txtDestinationHost.TabIndex = 0;
             // 
             // label5
             // 
