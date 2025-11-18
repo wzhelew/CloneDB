@@ -18,7 +18,7 @@ namespace CloneDBManager
             await connection.OpenAsync(cancellationToken);
 
             var tables = new List<string>();
-            const string sql = "SELECT TABLE_NAME FROM information_schema.tables WHERE table_schema = DATABASE() ORDER BY TABLE_NAME";
+            const string sql = "SELECT TABLE_NAME FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE' ORDER BY TABLE_NAME";
             await using var command = new MySqlCommand(sql, connection);
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
@@ -45,39 +45,6 @@ namespace CloneDBManager
             await destination.OpenAsync(cancellationToken);
 
 
-            foreach (var table in tables)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                log?.Invoke($"Cloning structure for table '{table.Name}'...");
-                await CloneTableAsync(source, destination, table.Name, cancellationToken);
-
-                if (table.CopyData)
-                {
-                    log?.Invoke($"Copying data for '{table.Name}'...");
-                    await CopyDataAsync(source, destination, table.Name, cancellationToken);
-                }
-            }
-
-            if (copyViews)
-            {
-                log?.Invoke("Cloning views...");
-                await CloneViewsAsync(source, destination, cancellationToken);
-            }
-
-            if (copyTriggers)
-            {
-                log?.Invoke("Cloning triggers...");
-                await CloneTriggersAsync(source, destination, cancellationToken);
-            }
-
-            if (copyRoutines)
-            {
-                log?.Invoke("Cloning stored routines (functions/procedures)...");
-                await CloneRoutinesAsync(source, destination, cancellationToken);
-            }
-
-            log?.Invoke("Cloning completed successfully.");
-
             var originalForeignKeyState = await GetForeignKeyChecksAsync(destination, cancellationToken);
             await SetForeignKeyChecksAsync(destination, 0, cancellationToken);
 
@@ -86,6 +53,12 @@ namespace CloneDBManager
                 foreach (var table in tables)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
+                    if (!await IsBaseTableAsync(source, table.Name, cancellationToken))
+                    {
+                        log?.Invoke($"Skipping '{table.Name}' because it is a view; views are cloned separately.");
+                        continue;
+                    }
+
                     log?.Invoke($"Cloning structure for table '{table.Name}'...");
                     await CloneTableAsync(source, destination, table.Name, cancellationToken);
 
@@ -131,7 +104,7 @@ namespace CloneDBManager
                 return;
             }
 
-            var createStatement = reader.GetString("Create Table");
+            var createStatement = reader.GetString(1);
             await reader.CloseAsync();
 
             await using var dropCmd = new MySqlCommand($"DROP TABLE IF EXISTS `{tableName}`;", destination);
@@ -190,7 +163,7 @@ namespace CloneDBManager
                     continue;
                 }
 
-                var createStatement = createReader.GetString("Create View");
+                var createStatement = createReader.GetString(1);
                 await createReader.CloseAsync();
 
                 await using var dropCmd = new MySqlCommand($"DROP VIEW IF EXISTS `{viewName}`;", destination);
@@ -222,7 +195,7 @@ namespace CloneDBManager
                     continue;
                 }
 
-                var createStatement = createReader.GetString("SQL Original Statement");
+                var createStatement = createReader.GetString(2);
                 await createReader.CloseAsync();
 
                 await using var dropCmd = new MySqlCommand($"DROP TRIGGER IF EXISTS `{trigger}`;", destination);
@@ -258,9 +231,7 @@ namespace CloneDBManager
                     continue;
                 }
 
-                var createStatement = routine.Type.Equals("FUNCTION", StringComparison.OrdinalIgnoreCase)
-                    ? createReader.GetString("Create Function")
-                    : createReader.GetString("Create Procedure");
+                var createStatement = createReader.GetString(2);
                 await createReader.CloseAsync();
 
                 var dropSql = routine.Type.Equals("FUNCTION", StringComparison.OrdinalIgnoreCase)
@@ -281,6 +252,16 @@ namespace CloneDBManager
             await using var cmd = new MySqlCommand("SELECT @@FOREIGN_KEY_CHECKS;", connection);
             var result = await cmd.ExecuteScalarAsync(cancellationToken);
             return Convert.ToUInt32(result);
+        }
+
+        private static async Task<bool> IsBaseTableAsync(MySqlConnection connection, string tableName, CancellationToken cancellationToken)
+        {
+            const string sql = "SELECT TABLE_TYPE FROM information_schema.tables WHERE table_schema = DATABASE() AND TABLE_NAME = @tableName LIMIT 1;";
+            await using var cmd = new MySqlCommand(sql, connection);
+            cmd.Parameters.AddWithValue("@tableName", tableName);
+
+            var result = await cmd.ExecuteScalarAsync(cancellationToken);
+            return string.Equals(result as string, "BASE TABLE", StringComparison.OrdinalIgnoreCase);
         }
 
         private static async Task SetForeignKeyChecksAsync(MySqlConnection connection, uint value, CancellationToken cancellationToken)
