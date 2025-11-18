@@ -18,7 +18,7 @@ namespace CloneDBManager
             await connection.OpenAsync(cancellationToken);
 
             var tables = new List<string>();
-            const string sql = "SELECT TABLE_NAME FROM information_schema.tables WHERE table_schema = DATABASE() ORDER BY TABLE_NAME";
+            const string sql = "SELECT TABLE_NAME FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE' ORDER BY TABLE_NAME";
             await using var command = new MySqlCommand(sql, connection);
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
