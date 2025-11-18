@@ -45,39 +45,6 @@ namespace CloneDBManager
             await destination.OpenAsync(cancellationToken);
 
 
-            foreach (var table in tables)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                log?.Invoke($"Cloning structure for table '{table.Name}'...");
-                await CloneTableAsync(source, destination, table.Name, cancellationToken);
-
-                if (table.CopyData)
-                {
-                    log?.Invoke($"Copying data for '{table.Name}'...");
-                    await CopyDataAsync(source, destination, table.Name, cancellationToken);
-                }
-            }
-
-            if (copyViews)
-            {
-                log?.Invoke("Cloning views...");
-                await CloneViewsAsync(source, destination, cancellationToken);
-            }
-
-            if (copyTriggers)
-            {
-                log?.Invoke("Cloning triggers...");
-                await CloneTriggersAsync(source, destination, cancellationToken);
-            }
-
-            if (copyRoutines)
-            {
-                log?.Invoke("Cloning stored routines (functions/procedures)...");
-                await CloneRoutinesAsync(source, destination, cancellationToken);
-            }
-
-            log?.Invoke("Cloning completed successfully.");
-
             var originalForeignKeyState = await GetForeignKeyChecksAsync(destination, cancellationToken);
             await SetForeignKeyChecksAsync(destination, 0, cancellationToken);
 
