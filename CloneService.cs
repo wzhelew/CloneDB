@@ -53,6 +53,12 @@ namespace CloneDBManager
                 foreach (var table in tables)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
+                    if (!await IsBaseTableAsync(source, table.Name, cancellationToken))
+                    {
+                        log?.Invoke($"Skipping '{table.Name}' because it is a view; views are cloned separately.");
+                        continue;
+                    }
+
                     log?.Invoke($"Cloning structure for table '{table.Name}'...");
                     await CloneTableAsync(source, destination, table.Name, cancellationToken);
 
@@ -246,6 +252,16 @@ namespace CloneDBManager
             await using var cmd = new MySqlCommand("SELECT @@FOREIGN_KEY_CHECKS;", connection);
             var result = await cmd.ExecuteScalarAsync(cancellationToken);
             return Convert.ToUInt32(result);
+        }
+
+        private static async Task<bool> IsBaseTableAsync(MySqlConnection connection, string tableName, CancellationToken cancellationToken)
+        {
+            const string sql = "SELECT TABLE_TYPE FROM information_schema.tables WHERE table_schema = DATABASE() AND TABLE_NAME = @tableName LIMIT 1;";
+            await using var cmd = new MySqlCommand(sql, connection);
+            cmd.Parameters.AddWithValue("@tableName", tableName);
+
+            var result = await cmd.ExecuteScalarAsync(cancellationToken);
+            return string.Equals(result as string, "BASE TABLE", StringComparison.OrdinalIgnoreCase);
         }
 
         private static async Task SetForeignKeyChecksAsync(MySqlConnection connection, uint value, CancellationToken cancellationToken)

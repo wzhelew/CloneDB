@@ -334,7 +334,7 @@ namespace CloneDBManager.Forms
             this.lblVersion.Name = "lblVersion";
             this.lblVersion.Size = new System.Drawing.Size(79, 20);
             this.lblVersion.TabIndex = 9;
-            this.lblVersion.Text = "Версия 1.2";
+            this.lblVersion.Text = "Версия 1.3";
             //
             // Form1
             //
