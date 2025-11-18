@@ -181,7 +181,7 @@ namespace CloneDBManager
             while (pending.Count > 0)
             {
                 var createdThisPass = false;
-                MySqlException? lastError = null;
+                Exception? lastError = null;
 
                 foreach (var view in pending.ToList())
                 {
