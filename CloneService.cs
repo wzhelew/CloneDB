@@ -218,6 +218,9 @@ namespace CloneDBManager
             }
             await reader.CloseAsync();
 
+            var sourceSchema = await GetCurrentDatabaseAsync(source, cancellationToken);
+            var destinationSchema = await GetCurrentDatabaseAsync(destination, cancellationToken);
+
             foreach (var trigger in triggers)
             {
                 await using var createCmd = new MySqlCommand($"SHOW CREATE TRIGGER `{trigger}`;", source);
@@ -230,12 +233,29 @@ namespace CloneDBManager
                 var createStatement = createReader.GetString(2);
                 await createReader.CloseAsync();
 
+                if (!string.IsNullOrEmpty(sourceSchema) && !string.IsNullOrEmpty(destinationSchema) && !sourceSchema.Equals(destinationSchema, StringComparison.OrdinalIgnoreCase))
+                {
+                    createStatement = createStatement.Replace($"`{sourceSchema}`.", $"`{destinationSchema}`.");
+                }
+
                 await using var dropCmd = new MySqlCommand($"DROP TRIGGER IF EXISTS `{trigger}`;", destination);
                 await dropCmd.ExecuteNonQueryAsync(cancellationToken);
 
                 await using var createDestCmd = new MySqlCommand(createStatement, destination);
                 await createDestCmd.ExecuteNonQueryAsync(cancellationToken);
             }
+        }
+
+        private static async Task<string> GetCurrentDatabaseAsync(MySqlConnection connection, CancellationToken cancellationToken)
+        {
+            if (!string.IsNullOrEmpty(connection.Database))
+            {
+                return connection.Database;
+            }
+
+            await using var cmd = new MySqlCommand("SELECT DATABASE();", connection);
+            var result = await cmd.ExecuteScalarAsync(cancellationToken);
+            return Convert.ToString(result) ?? string.Empty;
         }
 
         private static async Task CloneRoutinesAsync(MySqlConnection source, MySqlConnection destination, CancellationToken cancellationToken)
