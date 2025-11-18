@@ -154,6 +154,7 @@ namespace CloneDBManager
             }
             await reader.CloseAsync();
 
+            var definitions = new List<(string Name, string CreateSql)>();
             foreach (var viewName in views)
             {
                 await using var createCmd = new MySqlCommand($"SHOW CREATE VIEW `{viewName}`;", source);
@@ -166,11 +167,42 @@ namespace CloneDBManager
                 var createStatement = createReader.GetString(1);
                 await createReader.CloseAsync();
 
-                await using var dropCmd = new MySqlCommand($"DROP VIEW IF EXISTS `{viewName}`;", destination);
-                await dropCmd.ExecuteNonQueryAsync(cancellationToken);
+                definitions.Add((viewName, createStatement));
+            }
 
-                await using var createDestCmd = new MySqlCommand(createStatement, destination);
-                await createDestCmd.ExecuteNonQueryAsync(cancellationToken);
+            // Drop views first to avoid dependency conflicts, then recreate with retries until dependencies resolve.
+            foreach (var (name, _) in definitions)
+            {
+                await using var dropCmd = new MySqlCommand($"DROP VIEW IF EXISTS `{name}`;", destination);
+                await dropCmd.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            var pending = new List<(string Name, string CreateSql)>(definitions);
+            while (pending.Count > 0)
+            {
+                var createdThisPass = false;
+                MySqlException? lastError = null;
+
+                foreach (var view in pending.ToList())
+                {
+                    try
+                    {
+                        await using var createDestCmd = new MySqlCommand(view.CreateSql, destination);
+                        await createDestCmd.ExecuteNonQueryAsync(cancellationToken);
+                        pending.Remove(view);
+                        createdThisPass = true;
+                    }
+                    catch (MySqlException ex) when (ex.Number == 1146 || ex.Number == 1356)
+                    {
+                        // Missing dependency; retry in next pass.
+                        lastError = ex;
+                    }
+                }
+
+                if (!createdThisPass)
+                {
+                    throw lastError ?? new InvalidOperationException("Unable to create views due to unresolved dependencies.");
+                }
             }
         }
 
