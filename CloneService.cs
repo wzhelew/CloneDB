@@ -45,39 +45,6 @@ namespace CloneDBManager
             await destination.OpenAsync(cancellationToken);
 
 
-            foreach (var table in tables)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                log?.Invoke($"Cloning structure for table '{table.Name}'...");
-                await CloneTableAsync(source, destination, table.Name, cancellationToken);
-
-                if (table.CopyData)
-                {
-                    log?.Invoke($"Copying data for '{table.Name}'...");
-                    await CopyDataAsync(source, destination, table.Name, cancellationToken);
-                }
-            }
-
-            if (copyViews)
-            {
-                log?.Invoke("Cloning views...");
-                await CloneViewsAsync(source, destination, cancellationToken);
-            }
-
-            if (copyTriggers)
-            {
-                log?.Invoke("Cloning triggers...");
-                await CloneTriggersAsync(source, destination, cancellationToken);
-            }
-
-            if (copyRoutines)
-            {
-                log?.Invoke("Cloning stored routines (functions/procedures)...");
-                await CloneRoutinesAsync(source, destination, cancellationToken);
-            }
-
-            log?.Invoke("Cloning completed successfully.");
-
             var originalForeignKeyState = await GetForeignKeyChecksAsync(destination, cancellationToken);
             await SetForeignKeyChecksAsync(destination, 0, cancellationToken);
 
@@ -131,7 +98,7 @@ namespace CloneDBManager
                 return;
             }
 
-            var createStatement = reader.GetString("Create Table");
+            var createStatement = reader.GetString(1);
             await reader.CloseAsync();
 
             await using var dropCmd = new MySqlCommand($"DROP TABLE IF EXISTS `{tableName}`;", destination);
@@ -190,7 +157,7 @@ namespace CloneDBManager
                     continue;
                 }
 
-                var createStatement = createReader.GetString("Create View");
+                var createStatement = createReader.GetString(1);
                 await createReader.CloseAsync();
 
                 await using var dropCmd = new MySqlCommand($"DROP VIEW IF EXISTS `{viewName}`;", destination);
@@ -222,7 +189,7 @@ namespace CloneDBManager
                     continue;
                 }
 
-                var createStatement = createReader.GetString("SQL Original Statement");
+                var createStatement = createReader.GetString(2);
                 await createReader.CloseAsync();
 
                 await using var dropCmd = new MySqlCommand($"DROP TRIGGER IF EXISTS `{trigger}`;", destination);
@@ -258,9 +225,7 @@ namespace CloneDBManager
                     continue;
                 }
 
-                var createStatement = routine.Type.Equals("FUNCTION", StringComparison.OrdinalIgnoreCase)
-                    ? createReader.GetString("Create Function")
-                    : createReader.GetString("Create Procedure");
+                var createStatement = createReader.GetString(2);
                 await createReader.CloseAsync();
 
                 var dropSql = routine.Type.Equals("FUNCTION", StringComparison.OrdinalIgnoreCase)
