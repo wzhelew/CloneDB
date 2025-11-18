@@ -45,11 +45,12 @@ namespace CloneDBManager.Forms
             this.chkViews = new System.Windows.Forms.CheckBox();
             this.txtLog = new System.Windows.Forms.TextBox();
             this.label9 = new System.Windows.Forms.Label();
+            this.lblVersion = new System.Windows.Forms.Label();
             this.grpSource.SuspendLayout();
             this.grpDestination.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvTables)).BeginInit();
             this.SuspendLayout();
-            // 
+            //
             // grpSource
             // 
             this.grpSource.Controls.Add(this.btnLoadTables);
@@ -325,12 +326,22 @@ namespace CloneDBManager.Forms
             this.label9.Size = new System.Drawing.Size(39, 20);
             this.label9.TabIndex = 8;
             this.label9.Text = "Log";
-            // 
+            //
+            // lblVersion
+            //
+            this.lblVersion.AutoSize = true;
+            this.lblVersion.Location = new System.Drawing.Point(12, 0);
+            this.lblVersion.Name = "lblVersion";
+            this.lblVersion.Size = new System.Drawing.Size(79, 20);
+            this.lblVersion.TabIndex = 9;
+            this.lblVersion.Text = "Версия 1.1";
+            //
             // Form1
-            // 
+            //
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(842, 615);
+            this.Controls.Add(this.lblVersion);
             this.Controls.Add(this.label9);
             this.Controls.Add(this.txtLog);
             this.Controls.Add(this.chkViews);
@@ -382,5 +393,6 @@ namespace CloneDBManager.Forms
         private System.Windows.Forms.CheckBox chkViews;
         private System.Windows.Forms.TextBox txtLog;
         private System.Windows.Forms.Label label9;
+        private System.Windows.Forms.Label lblVersion;
     }
 }
