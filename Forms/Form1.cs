@@ -114,7 +114,8 @@ namespace CloneDBManager.Forms
                 UserID = user,
                 Password = password,
                 Database = database,
-                SslMode = MySqlConnector.MySqlSslMode.None
+                SslMode = MySqlConnector.MySqlSslMode.None,
+                AllowUserVariables = true
             };
 
             return builder.ToString();
