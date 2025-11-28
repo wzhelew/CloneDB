@@ -52,6 +52,7 @@ namespace CloneDBManager.Forms
             this.lblVersion = new System.Windows.Forms.Label();
             this.btnSaveTemplate = new System.Windows.Forms.Button();
             this.btnLoadTemplate = new System.Windows.Forms.Button();
+            this.btnSqlDump = new System.Windows.Forms.Button();
             this.grpSource.SuspendLayout();
             this.grpDestination.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvTables)).BeginInit();
@@ -398,6 +399,16 @@ namespace CloneDBManager.Forms
             this.btnLoadTemplate.UseVisualStyleBackColor = true;
             this.btnLoadTemplate.Click += new System.EventHandler(this.btnLoadTemplate_Click);
             //
+            // btnSqlDump
+            //
+            this.btnSqlDump.Location = new System.Drawing.Point(374, 218);
+            this.btnSqlDump.Name = "btnSqlDump";
+            this.btnSqlDump.Size = new System.Drawing.Size(175, 28);
+            this.btnSqlDump.TabIndex = 12;
+            this.btnSqlDump.Text = "SQLDUMP";
+            this.btnSqlDump.UseVisualStyleBackColor = true;
+            this.btnSqlDump.Click += new System.EventHandler(this.btnSqlDump_Click);
+            //
             // Form1
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
@@ -415,6 +426,7 @@ namespace CloneDBManager.Forms
             this.Controls.Add(this.dgvTables);
             this.Controls.Add(this.grpDestination);
             this.Controls.Add(this.grpSource);
+            this.Controls.Add(this.btnSqlDump);
             this.Name = "Form1";
             this.Text = "CloneDBManager";
             this.grpSource.ResumeLayout(false);
@@ -464,5 +476,6 @@ namespace CloneDBManager.Forms
         private System.Windows.Forms.Label lblVersion;
         private System.Windows.Forms.Button btnSaveTemplate;
         private System.Windows.Forms.Button btnLoadTemplate;
+        private System.Windows.Forms.Button btnSqlDump;
     }
 }
