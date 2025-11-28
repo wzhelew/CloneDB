@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -110,10 +111,16 @@ namespace CloneDBManager.Forms
             return results;
         }
 
-        private static string BuildConnectionString(string host, string port, string user, string password, string database)
+        private static MySqlConnector.MySqlConnectionStringBuilder BuildConnectionBuilder(
+            string host,
+            string port,
+            string user,
+            string password,
+            string database)
         {
             var parsedPort = uint.TryParse(port, out var numericPort) && numericPort > 0 ? numericPort : 3306u;
-            var builder = new MySqlConnector.MySqlConnectionStringBuilder
+
+            return new MySqlConnector.MySqlConnectionStringBuilder
             {
                 Server = host,
                 Port = parsedPort,
@@ -123,8 +130,64 @@ namespace CloneDBManager.Forms
                 SslMode = MySqlConnector.MySqlSslMode.None,
                 AllowUserVariables = true
             };
+        }
 
-            return builder.ToString();
+        private static string BuildConnectionString(string host, string port, string user, string password, string database)
+        {
+            return BuildConnectionBuilder(host, port, user, password, database).ToString();
+        }
+
+        private async Task RunSqlDumpAsync(MySqlConnector.MySqlConnectionStringBuilder connectionBuilder, string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(connectionBuilder.Database))
+            {
+                throw new InvalidOperationException("Database name is required for SQL dump.");
+            }
+
+            var processStartInfo = new ProcessStartInfo("mysqldump")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false
+            };
+
+            processStartInfo.ArgumentList.Add("--host");
+            processStartInfo.ArgumentList.Add(connectionBuilder.Server);
+            processStartInfo.ArgumentList.Add("--port");
+            processStartInfo.ArgumentList.Add(connectionBuilder.Port.ToString());
+            processStartInfo.ArgumentList.Add("--user");
+            processStartInfo.ArgumentList.Add(connectionBuilder.UserID);
+            if (!string.IsNullOrEmpty(connectionBuilder.Password))
+            {
+                processStartInfo.ArgumentList.Add($"--password={connectionBuilder.Password}");
+            }
+
+            processStartInfo.ArgumentList.Add("--routines");
+            processStartInfo.ArgumentList.Add("--triggers");
+            processStartInfo.ArgumentList.Add("--events");
+            processStartInfo.ArgumentList.Add("--single-transaction");
+            processStartInfo.ArgumentList.Add(connectionBuilder.Database);
+
+            await using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None);
+            using var process = new Process { StartInfo = processStartInfo };
+
+            process.Start();
+
+            var readOutputTask = process.StandardOutput.BaseStream.CopyToAsync(fileStream);
+            var readErrorTask = process.StandardError.ReadToEndAsync();
+
+            await Task.WhenAll(readOutputTask, process.WaitForExitAsync());
+            var errors = await readErrorTask;
+
+            if (process.ExitCode != 0)
+            {
+                throw new InvalidOperationException($"mysqldump exited with code {process.ExitCode}: {errors}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(errors))
+            {
+                AppendLog(errors);
+            }
         }
 
         private void AppendLog(string message)
@@ -141,6 +204,7 @@ namespace CloneDBManager.Forms
         private void ToggleUi(bool enabled)
         {
             btnClone.Enabled = enabled;
+            btnSqlDump.Enabled = enabled;
             btnLoadTables.Enabled = enabled;
             btnLoadTemplate.Enabled = enabled;
             btnSaveTemplate.Enabled = enabled;
@@ -201,6 +265,44 @@ namespace CloneDBManager.Forms
             }
 
             AppendLog($"Template loaded from {templatePath}.");
+        }
+
+        private async void btnSqlDump_Click(object sender, EventArgs e)
+        {
+            using var dialog = new SaveFileDialog
+            {
+                FileName = $"{txtSourceDatabase.Text}_dump.sql",
+                Filter = "SQL Files (*.sql)|*.sql|All files (*.*)|*.*",
+                DefaultExt = "sql"
+            };
+
+            if (dialog.ShowDialog() != DialogResult.OK)
+            {
+                return;
+            }
+
+            ToggleUi(false);
+            try
+            {
+                var connectionBuilder = BuildConnectionBuilder(
+                    txtSourceHost.Text,
+                    txtSourcePort.Text,
+                    txtSourceUser.Text,
+                    txtSourcePassword.Text,
+                    txtSourceDatabase.Text);
+
+                AppendLog($"Creating SQL dump for '{connectionBuilder.Database}'...");
+                await RunSqlDumpAsync(connectionBuilder, dialog.FileName);
+                AppendLog($"SQL dump saved to {dialog.FileName}.");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"SQL dump failed: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                ToggleUi(true);
+            }
         }
     }
 }
