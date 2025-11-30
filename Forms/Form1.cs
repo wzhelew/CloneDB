@@ -144,6 +144,30 @@ namespace CloneDBManager.Forms
                 throw new InvalidOperationException("Database name is required for SQL dump.");
             }
 
+            var result = await RunSqlDumpInternalAsync(connectionBuilder, filePath, includeEvents: true);
+
+            if (result.ExitCode != 0 && IsUnknownEventsOption(result.Errors))
+            {
+                AppendLog("mysqldump does not support --events; retrying without events.");
+                result = await RunSqlDumpInternalAsync(connectionBuilder, filePath, includeEvents: false);
+            }
+
+            if (result.ExitCode != 0)
+            {
+                throw new InvalidOperationException($"mysqldump exited with code {result.ExitCode}: {result.Errors}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(result.Errors))
+            {
+                AppendLog(result.Errors);
+            }
+        }
+
+        private static async Task<(int ExitCode, string Errors)> RunSqlDumpInternalAsync(
+            MySqlConnector.MySqlConnectionStringBuilder connectionBuilder,
+            string filePath,
+            bool includeEvents)
+        {
             var processStartInfo = new ProcessStartInfo("mysqldump")
             {
                 RedirectStandardOutput = true,
@@ -164,7 +188,11 @@ namespace CloneDBManager.Forms
 
             processStartInfo.ArgumentList.Add("--routines");
             processStartInfo.ArgumentList.Add("--triggers");
-            processStartInfo.ArgumentList.Add("--events");
+            if (includeEvents)
+            {
+                processStartInfo.ArgumentList.Add("--events");
+            }
+
             processStartInfo.ArgumentList.Add("--single-transaction");
             processStartInfo.ArgumentList.Add(connectionBuilder.Database);
 
@@ -179,15 +207,13 @@ namespace CloneDBManager.Forms
             await Task.WhenAll(readOutputTask, process.WaitForExitAsync());
             var errors = await readErrorTask;
 
-            if (process.ExitCode != 0)
-            {
-                throw new InvalidOperationException($"mysqldump exited with code {process.ExitCode}: {errors}");
-            }
+            return (process.ExitCode, errors);
+        }
 
-            if (!string.IsNullOrWhiteSpace(errors))
-            {
-                AppendLog(errors);
-            }
+        private static bool IsUnknownEventsOption(string errors)
+        {
+            return errors.IndexOf("--events", StringComparison.OrdinalIgnoreCase) >= 0
+                   && errors.IndexOf("unknown", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private async Task RunSqlRestoreAsync(MySqlConnector.MySqlConnectionStringBuilder connectionBuilder, string filePath)
