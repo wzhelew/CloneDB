@@ -53,7 +53,6 @@ namespace CloneDBManager.Forms
             this.btnSaveTemplate = new System.Windows.Forms.Button();
             this.btnLoadTemplate = new System.Windows.Forms.Button();
             this.btnSqlDump = new System.Windows.Forms.Button();
-            this.btnSqlRestore = new System.Windows.Forms.Button();
             this.grpSource.SuspendLayout();
             this.grpDestination.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvTables)).BeginInit();
@@ -410,22 +409,11 @@ namespace CloneDBManager.Forms
             this.btnSqlDump.UseVisualStyleBackColor = true;
             this.btnSqlDump.Click += new System.EventHandler(this.btnSqlDump_Click);
             //
-            // btnSqlRestore
-            //
-            this.btnSqlRestore.Location = new System.Drawing.Point(555, 218);
-            this.btnSqlRestore.Name = "btnSqlRestore";
-            this.btnSqlRestore.Size = new System.Drawing.Size(175, 28);
-            this.btnSqlRestore.TabIndex = 13;
-            this.btnSqlRestore.Text = "SQLRESTORE";
-            this.btnSqlRestore.UseVisualStyleBackColor = true;
-            this.btnSqlRestore.Click += new System.EventHandler(this.btnSqlRestore_Click);
-            //
             // Form1
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(842, 615);
-            this.Controls.Add(this.btnSqlRestore);
             this.Controls.Add(this.btnLoadTemplate);
             this.Controls.Add(this.btnSaveTemplate);
             this.Controls.Add(this.lblVersion);
@@ -489,6 +477,5 @@ namespace CloneDBManager.Forms
         private System.Windows.Forms.Button btnSaveTemplate;
         private System.Windows.Forms.Button btnLoadTemplate;
         private System.Windows.Forms.Button btnSqlDump;
-        private System.Windows.Forms.Button btnSqlRestore;
     }
 }
