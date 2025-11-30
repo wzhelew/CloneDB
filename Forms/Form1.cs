@@ -190,6 +190,71 @@ namespace CloneDBManager.Forms
             }
         }
 
+        private async Task RunSqlRestoreAsync(MySqlConnector.MySqlConnectionStringBuilder connectionBuilder, string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(connectionBuilder.Database))
+            {
+                throw new InvalidOperationException("Database name is required for SQL restore.");
+            }
+
+            if (!File.Exists(filePath))
+            {
+                throw new FileNotFoundException($"SQL dump file not found: {filePath}");
+            }
+
+            var processStartInfo = new ProcessStartInfo("mysql")
+            {
+                RedirectStandardInput = true,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false
+            };
+
+            processStartInfo.ArgumentList.Add("--host");
+            processStartInfo.ArgumentList.Add(connectionBuilder.Server);
+            processStartInfo.ArgumentList.Add("--port");
+            processStartInfo.ArgumentList.Add(connectionBuilder.Port.ToString());
+            processStartInfo.ArgumentList.Add("--user");
+            processStartInfo.ArgumentList.Add(connectionBuilder.UserID);
+            if (!string.IsNullOrEmpty(connectionBuilder.Password))
+            {
+                processStartInfo.ArgumentList.Add($"--password={connectionBuilder.Password}");
+            }
+
+            processStartInfo.ArgumentList.Add(connectionBuilder.Database);
+
+            await using var inputStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var process = new Process { StartInfo = processStartInfo };
+
+            process.Start();
+
+            var writeTask = inputStream.CopyToAsync(process.StandardInput.BaseStream);
+            var readOutputTask = process.StandardOutput.ReadToEndAsync();
+            var readErrorTask = process.StandardError.ReadToEndAsync();
+
+            await Task.WhenAll(writeTask, process.StandardInput.FlushAsync());
+            process.StandardInput.Close();
+
+            await process.WaitForExitAsync();
+            var errors = await readErrorTask;
+            var output = await readOutputTask;
+
+            if (process.ExitCode != 0)
+            {
+                throw new InvalidOperationException($"mysql exited with code {process.ExitCode}: {errors}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(errors))
+            {
+                AppendLog(errors);
+            }
+
+            if (!string.IsNullOrWhiteSpace(output))
+            {
+                AppendLog(output);
+            }
+        }
+
         private void AppendLog(string message)
         {
             if (txtLog.InvokeRequired)
@@ -205,6 +270,7 @@ namespace CloneDBManager.Forms
         {
             btnClone.Enabled = enabled;
             btnSqlDump.Enabled = enabled;
+            btnSqlRestore.Enabled = enabled;
             btnLoadTables.Enabled = enabled;
             btnLoadTemplate.Enabled = enabled;
             btnSaveTemplate.Enabled = enabled;
@@ -298,6 +364,43 @@ namespace CloneDBManager.Forms
             catch (Exception ex)
             {
                 MessageBox.Show($"SQL dump failed: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                ToggleUi(true);
+            }
+        }
+
+        private async void btnSqlRestore_Click(object sender, EventArgs e)
+        {
+            using var dialog = new OpenFileDialog
+            {
+                Filter = "SQL Files (*.sql)|*.sql|All files (*.*)|*.*",
+                DefaultExt = "sql"
+            };
+
+            if (dialog.ShowDialog() != DialogResult.OK)
+            {
+                return;
+            }
+
+            ToggleUi(false);
+            try
+            {
+                var connectionBuilder = BuildConnectionBuilder(
+                    txtDestinationHost.Text,
+                    txtDestinationPort.Text,
+                    txtDestinationUser.Text,
+                    txtDestinationPassword.Text,
+                    txtDestinationDatabase.Text);
+
+                AppendLog($"Restoring database '{connectionBuilder.Database}' from dump...");
+                await RunSqlRestoreAsync(connectionBuilder, dialog.FileName);
+                AppendLog($"SQL dump '{dialog.FileName}' restored to '{connectionBuilder.Database}'.");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"SQL restore failed: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
