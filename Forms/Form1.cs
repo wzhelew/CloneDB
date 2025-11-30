@@ -194,6 +194,8 @@ namespace CloneDBManager.Forms
             }
 
             processStartInfo.ArgumentList.Add("--single-transaction");
+            processStartInfo.ArgumentList.Add("--add-drop-database");
+            processStartInfo.ArgumentList.Add("--databases");
             processStartInfo.ArgumentList.Add(connectionBuilder.Database);
 
             await using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None);
@@ -247,12 +249,19 @@ namespace CloneDBManager.Forms
                 processStartInfo.ArgumentList.Add($"--password={connectionBuilder.Password}");
             }
 
-            processStartInfo.ArgumentList.Add(connectionBuilder.Database);
-
             await using var inputStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
             using var process = new Process { StartInfo = processStartInfo };
 
             process.Start();
+
+            var escapedDatabaseName = connectionBuilder.Database.Replace("`", "``");
+
+            await using (var writer = new StreamWriter(process.StandardInput.BaseStream, leaveOpen: true))
+            {
+                await writer.WriteLineAsync($"CREATE DATABASE IF NOT EXISTS `{escapedDatabaseName}`;");
+                await writer.WriteLineAsync($"USE `{escapedDatabaseName}`;");
+                await writer.FlushAsync();
+            }
 
             var writeTask = inputStream.CopyToAsync(process.StandardInput.BaseStream);
             var readOutputTask = process.StandardOutput.ReadToEndAsync();
