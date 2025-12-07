@@ -47,6 +47,8 @@ namespace CloneDBManager.Forms
             this.chkTriggers = new System.Windows.Forms.CheckBox();
             this.chkRoutines = new System.Windows.Forms.CheckBox();
             this.chkViews = new System.Windows.Forms.CheckBox();
+            this.lblCopyMethod = new System.Windows.Forms.Label();
+            this.cmbCopyMethod = new System.Windows.Forms.ComboBox();
             this.txtLog = new System.Windows.Forms.TextBox();
             this.label9 = new System.Windows.Forms.Label();
             this.lblVersion = new System.Windows.Forms.Label();
@@ -350,22 +352,40 @@ namespace CloneDBManager.Forms
             this.chkViews.Text = "Copy views";
             this.chkViews.UseVisualStyleBackColor = true;
             //
+            // lblCopyMethod
+            //
+            this.lblCopyMethod.AutoSize = true;
+            this.lblCopyMethod.Location = new System.Drawing.Point(593, 470);
+            this.lblCopyMethod.Name = "lblCopyMethod";
+            this.lblCopyMethod.Size = new System.Drawing.Size(128, 20);
+            this.lblCopyMethod.TabIndex = 14;
+            this.lblCopyMethod.Text = "Data copy method";
+            //
+            // cmbCopyMethod
+            //
+            this.cmbCopyMethod.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cmbCopyMethod.FormattingEnabled = true;
+            this.cmbCopyMethod.Location = new System.Drawing.Point(593, 493);
+            this.cmbCopyMethod.Name = "cmbCopyMethod";
+            this.cmbCopyMethod.Size = new System.Drawing.Size(237, 28);
+            this.cmbCopyMethod.TabIndex = 15;
+            //
             // txtLog
             //
             this.txtLog.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.txtLog.Location = new System.Drawing.Point(12, 508);
+            this.txtLog.Location = new System.Drawing.Point(12, 527);
             this.txtLog.Multiline = true;
             this.txtLog.Name = "txtLog";
             this.txtLog.ReadOnly = true;
             this.txtLog.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.txtLog.Size = new System.Drawing.Size(818, 60);
+            this.txtLog.Size = new System.Drawing.Size(818, 41);
             this.txtLog.TabIndex = 7;
-            // 
+            //
             // label9
             //
             this.label9.AutoSize = true;
-            this.label9.Location = new System.Drawing.Point(12, 485);
+            this.label9.Location = new System.Drawing.Point(12, 504);
             this.label9.Name = "label9";
             this.label9.Size = new System.Drawing.Size(39, 20);
             this.label9.TabIndex = 8;
@@ -439,6 +459,8 @@ namespace CloneDBManager.Forms
             this.Controls.Add(this.grpDestination);
             this.Controls.Add(this.grpSource);
             this.Controls.Add(this.btnSqlDump);
+            this.Controls.Add(this.cmbCopyMethod);
+            this.Controls.Add(this.lblCopyMethod);
             this.Name = "Form1";
             this.Text = "CloneDBManager";
             this.grpSource.ResumeLayout(false);
@@ -483,6 +505,8 @@ namespace CloneDBManager.Forms
         private System.Windows.Forms.CheckBox chkTriggers;
         private System.Windows.Forms.CheckBox chkRoutines;
         private System.Windows.Forms.CheckBox chkViews;
+        private System.Windows.Forms.Label lblCopyMethod;
+        private System.Windows.Forms.ComboBox cmbCopyMethod;
         private System.Windows.Forms.TextBox txtLog;
         private System.Windows.Forms.Label label9;
         private System.Windows.Forms.Label lblVersion;
