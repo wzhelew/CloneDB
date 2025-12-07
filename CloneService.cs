@@ -123,22 +123,25 @@ namespace CloneDBManager
                 return;
             }
 
-            var columnNames = Enumerable.Range(0, reader.FieldCount)
-                .Select(reader.GetName)
-                .ToArray();
-
-            var parameterNames = columnNames.Select((_, i) => $"@p{i}").ToArray();
-            var insertSql = $"INSERT INTO `{tableName}` ({string.Join(", ", columnNames.Select(WrapName))}) VALUES ({string.Join(", ", parameterNames)});";
-
-            while (await reader.ReadAsync(cancellationToken))
+            var bulkCopy = new MySqlBulkCopy(destination)
             {
-                await using var insertCmd = new MySqlCommand(insertSql, destination);
-                for (var i = 0; i < columnNames.Length; i++)
-                {
-                    insertCmd.Parameters.AddWithValue(parameterNames[i], reader.GetValue(i));
-                }
+                DestinationTableName = WrapName(tableName)
+            };
 
-                await insertCmd.ExecuteNonQueryAsync(cancellationToken);
+            try
+            {
+                await bulkCopy.WriteToServerAsync(reader, cancellationToken);
+            }
+            finally
+            {
+                if (bulkCopy is IAsyncDisposable asyncDisposable)
+                {
+                    await asyncDisposable.DisposeAsync();
+                }
+                else if (bulkCopy is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
             }
         }
 
