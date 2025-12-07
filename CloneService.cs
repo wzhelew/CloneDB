@@ -123,12 +123,26 @@ namespace CloneDBManager
                 return;
             }
 
-            using var bulkCopy = new MySqlBulkCopy(destination)
+            var bulkCopy = new MySqlBulkCopy(destination)
             {
                 DestinationTableName = WrapName(tableName)
             };
 
-            await bulkCopy.WriteToServerAsync(reader, cancellationToken);
+            try
+            {
+                await bulkCopy.WriteToServerAsync(reader, cancellationToken);
+            }
+            finally
+            {
+                if (bulkCopy is IAsyncDisposable asyncDisposable)
+                {
+                    await asyncDisposable.DisposeAsync();
+                }
+                else if (bulkCopy is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
+            }
         }
 
         private static async Task CloneViewsAsync(MySqlConnection source, MySqlConnection destination, CancellationToken cancellationToken)
