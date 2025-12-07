@@ -169,7 +169,59 @@ namespace CloneDBManager
             var parameters = new List<MySqlParameter>(batchSize * columnNames.Length);
             var parameterIndex = 0;
 
-            while (await reader.ReadAsync(cancellationToken))
+            try
+            {
+                await bulkCopy.WriteToServerAsync(reader, cancellationToken);
+            }
+            finally
+            {
+                await DisposeBulkCopyAsync(bulkCopy);
+            }
+        }
+
+        private static async Task CopyDataWithBulkInsertAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
+        {
+            const int batchSize = 500;
+            var schema = reader.GetColumnSchema();
+            if (schema.Count == 0)
+            {
+                return;
+            }
+
+            var columnNames = schema.Select(col => WrapName(col.ColumnName)).ToArray();
+            var insertPrefix = $"INSERT INTO {WrapName(tableName)} ({string.Join(", ", columnNames)}) VALUES ";
+
+            var valueRows = new List<string>(batchSize);
+            var parameters = new List<MySqlParameter>(batchSize * columnNames.Length);
+            var parameterIndex = 0;
+
+            try
+            {
+                await bulkCopy.WriteToServerAsync(reader, cancellationToken);
+            }
+            finally
+            {
+                await DisposeBulkCopyAsync(bulkCopy);
+            }
+        }
+
+        private static async Task CopyDataWithBulkInsertAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
+        {
+            const int batchSize = 500;
+            var schema = reader.GetColumnSchema();
+            if (schema.Count == 0)
+            {
+                return;
+            }
+
+            var columnNames = schema.Select(col => WrapName(col.ColumnName)).ToArray();
+            var insertPrefix = $"INSERT INTO {WrapName(tableName)} ({string.Join(", ", columnNames)}) VALUES ";
+
+            var valueRows = new List<string>(batchSize);
+            var parameters = new List<MySqlParameter>(batchSize * columnNames.Length);
+            var parameterIndex = 0;
+
+            try
             {
                 var placeholders = new string[columnNames.Length];
                 for (var i = 0; i < columnNames.Length; i++)
@@ -183,6 +235,22 @@ namespace CloneDBManager
 
                     parameters.Add(new MySqlParameter(paramName, value));
                 }
+            }
+
+            await FlushBatchAsync(destination, insertPrefix, valueRows, parameters, cancellationToken);
+        }
+
+        private static async Task FlushBatchAsync(
+            MySqlConnection destination,
+            string insertPrefix,
+            List<string> valueRows,
+            List<MySqlParameter> parameters,
+            CancellationToken cancellationToken)
+        {
+            if (valueRows.Count == 0)
+            {
+                return;
+            }
 
                 valueRows.Add($"({string.Join(", ", placeholders)})");
 
