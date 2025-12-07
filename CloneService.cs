@@ -185,7 +185,7 @@ namespace CloneDBManager
             var parameters = new List<MySqlParameter>(batchSize * columnNames.Length);
             var parameterIndex = 0;
 
-            while (await reader.ReadAsync(cancellationToken))
+            try
             {
                 var placeholders = new string[columnNames.Length];
                 for (var i = 0; i < columnNames.Length; i++)
