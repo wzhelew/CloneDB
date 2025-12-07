@@ -52,7 +52,6 @@ namespace CloneDBManager
             await source.OpenAsync(cancellationToken);
             await destination.OpenAsync(cancellationToken);
 
-
             var originalForeignKeyState = await GetForeignKeyChecksAsync(destination, cancellationToken);
             await SetForeignKeyChecksAsync(destination, 0, cancellationToken);
 
@@ -61,6 +60,7 @@ namespace CloneDBManager
                 foreach (var table in tables)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
+
                     if (!await IsBaseTableAsync(source, table.Name, cancellationToken))
                     {
                         log?.Invoke($"Skipping '{table.Name}' because it is a view; views are cloned separately.");
@@ -145,10 +145,30 @@ namespace CloneDBManager
 
         private static async Task CopyDataWithBulkCopyAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
         {
-            var bulkCopy = new MySqlBulkCopy(destination)
+            using var bulkCopy = new MySqlBulkCopy(destination)
             {
                 DestinationTableName = WrapName(tableName)
             };
+
+            await bulkCopy.WriteToServerAsync(reader, cancellationToken);
+        }
+
+        private static async Task CopyDataWithBulkInsertAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
+        {
+            const int batchSize = 500;
+
+            var schema = reader.GetColumnSchema();
+            if (schema.Count == 0)
+            {
+                return;
+            }
+
+            var columnNames = schema.Select(col => WrapName(col.ColumnName)).ToArray();
+            var insertPrefix = $"INSERT INTO {WrapName(tableName)} ({string.Join(", ", columnNames)}) VALUES ";
+
+            var valueRows = new List<string>(batchSize);
+            var parameters = new List<MySqlParameter>(batchSize * columnNames.Length);
+            var parameterIndex = 0;
 
             await bulkCopy.WriteToServerAsync(reader, cancellationToken);
         }
@@ -201,28 +221,6 @@ namespace CloneDBManager
             }
             finally
             {
-                await DisposeBulkCopyAsync(bulkCopy);
-            }
-        }
-
-        private static async Task CopyDataWithBulkInsertAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
-        {
-            const int batchSize = 500;
-            var schema = reader.GetColumnSchema();
-            if (schema.Count == 0)
-            {
-                return;
-            }
-
-            var columnNames = schema.Select(col => WrapName(col.ColumnName)).ToArray();
-            var insertPrefix = $"INSERT INTO {WrapName(tableName)} ({string.Join(", ", columnNames)}) VALUES ";
-
-            var valueRows = new List<string>(batchSize);
-            var parameters = new List<MySqlParameter>(batchSize * columnNames.Length);
-            var parameterIndex = 0;
-
-            try
-            {
                 var placeholders = new string[columnNames.Length];
                 for (var i = 0; i < columnNames.Length; i++)
                 {
@@ -235,22 +233,6 @@ namespace CloneDBManager
 
                     parameters.Add(new MySqlParameter(paramName, value));
                 }
-            }
-
-            await FlushBatchAsync(destination, insertPrefix, valueRows, parameters, cancellationToken);
-        }
-
-        private static async Task FlushBatchAsync(
-            MySqlConnection destination,
-            string insertPrefix,
-            List<string> valueRows,
-            List<MySqlParameter> parameters,
-            CancellationToken cancellationToken)
-        {
-            if (valueRows.Count == 0)
-            {
-                return;
-            }
 
                 valueRows.Add($"({string.Join(", ", placeholders)})");
 
@@ -315,7 +297,6 @@ namespace CloneDBManager
                 definitions.Add((viewName, createStatement));
             }
 
-            // Drop views first to avoid dependency conflicts, then recreate with retries until dependencies resolve.
             foreach (var (name, _) in definitions)
             {
                 await using var dropCmd = new MySqlCommand($"DROP VIEW IF EXISTS `{name}`;", destination);
@@ -339,7 +320,6 @@ namespace CloneDBManager
                     }
                     catch (MySqlException ex) when (ex.Number == 1146 || ex.Number == 1356)
                     {
-                        // Missing dependency; retry in next pass.
                         lastError = ex;
                     }
                 }
@@ -443,7 +423,6 @@ namespace CloneDBManager
             }
         }
 
-
         private static async Task<uint> GetForeignKeyChecksAsync(MySqlConnection connection, CancellationToken cancellationToken)
         {
             await using var cmd = new MySqlCommand("SELECT @@FOREIGN_KEY_CHECKS;", connection);
@@ -466,7 +445,6 @@ namespace CloneDBManager
             await using var cmd = new MySqlCommand($"SET FOREIGN_KEY_CHECKS={value};", connection);
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
-
 
         private static string WrapName(string name) => $"`{name}`";
 
