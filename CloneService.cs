@@ -150,21 +150,7 @@ namespace CloneDBManager
                 DestinationTableName = WrapName(tableName)
             };
 
-            try
-            {
-                await bulkCopy.WriteToServerAsync(reader, cancellationToken);
-            }
-            finally
-            {
-                if (bulkCopy is IAsyncDisposable asyncDisposable)
-                {
-                    await asyncDisposable.DisposeAsync();
-                }
-                else if (bulkCopy is IDisposable disposable)
-                {
-                    disposable.Dispose();
-                }
-            }
+            await bulkCopy.WriteToServerAsync(reader, cancellationToken);
         }
 
         private static async Task CopyDataWithBulkInsertAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
@@ -183,15 +169,11 @@ namespace CloneDBManager
             var valueRows = new List<string>(batchSize);
             var parameters = new List<MySqlParameter>(batchSize * columnNames.Length);
 
-            await bulkCopy.WriteToServerAsync(reader, cancellationToken);
-        }
-
-        private static async Task CopyDataWithBulkInsertAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
-        {
-            const int batchSize = 500;
-
-            var schema = reader.GetColumnSchema();
-            if (schema.Count == 0)
+            try
+            {
+                await bulkCopy.WriteToServerAsync(reader, cancellationToken);
+            }
+            finally
             {
                 var placeholders = new string[columnNames.Length];
                 for (var i = 0; i < columnNames.Length; i++)
