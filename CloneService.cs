@@ -125,7 +125,7 @@ namespace CloneDBManager
 
             await using var bulkCopy = new MySqlBulkCopy(destination)
             {
-                DestinationTableName = tableName
+                DestinationTableName = WrapName(tableName)
             };
 
             await bulkCopy.WriteToServerAsync(reader, cancellationToken);
