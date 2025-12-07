@@ -201,7 +201,7 @@ namespace CloneDBManager
                 parameters.Clear();
             }
 
-            while (await reader.ReadAsync(cancellationToken))
+            try
             {
                 var placeholders = new string[columnNames.Length];
                 for (var i = 0; i < columnNames.Length; i++)
