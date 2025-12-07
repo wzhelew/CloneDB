@@ -125,7 +125,7 @@ namespace CloneDBManager
         private static async Task CopyDataAsync(MySqlConnection source, MySqlConnection destination, string tableName, DataCopyMethod method, CancellationToken cancellationToken)
         {
             await using var selectCmd = new MySqlCommand($"SELECT * FROM `{tableName}`;", source);
-            await using var reader = await selectCmd.ExecuteReaderAsync(cancellationToken);
+            await using var reader = await selectCmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
             if (!reader.HasRows)
             {
                 return;
@@ -152,6 +152,22 @@ namespace CloneDBManager
 
             await bulkCopy.WriteToServerAsync(reader, cancellationToken);
         }
+
+        private static async Task CopyDataWithBulkInsertAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
+        {
+            const int batchSize = 500;
+
+            var schema = reader.GetColumnSchema();
+            if (schema.Count == 0)
+            {
+                return;
+            }
+
+            var columnNames = schema.Select(col => WrapName(col.ColumnName)).ToArray();
+            var insertPrefix = $"INSERT INTO {WrapName(tableName)} ({string.Join(", ", columnNames)}) VALUES ";
+
+            var valueRows = new List<string>(batchSize);
+            var parameters = new List<MySqlParameter>(batchSize * columnNames.Length);
 
         private static async Task CopyDataWithBulkInsertAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
         {
