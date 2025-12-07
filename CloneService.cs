@@ -14,7 +14,7 @@ namespace CloneDBManager
     {
         public static async Task<IReadOnlyList<string>> GetTablesAsync(string connectionString, CancellationToken cancellationToken = default)
         {
-            await using var connection = new MySqlConnection(connectionString);
+            await using var connection = new MySqlConnection(EnsureLocalInfileEnabled(connectionString));
             await connection.OpenAsync(cancellationToken);
 
             var tables = new List<string>();
@@ -39,8 +39,8 @@ namespace CloneDBManager
             Action<string>? log,
             CancellationToken cancellationToken = default)
         {
-            await using var source = new MySqlConnection(sourceConnectionString);
-            await using var destination = new MySqlConnection(destinationConnectionString);
+            await using var source = new MySqlConnection(EnsureLocalInfileEnabled(sourceConnectionString));
+            await using var destination = new MySqlConnection(EnsureLocalInfileEnabled(destinationConnectionString));
             await source.OpenAsync(cancellationToken);
             await destination.OpenAsync(cancellationToken);
 
@@ -123,22 +123,27 @@ namespace CloneDBManager
                 return;
             }
 
-            var columnNames = Enumerable.Range(0, reader.FieldCount)
-                .Select(reader.GetName)
-                .ToArray();
-
-            var parameterNames = columnNames.Select((_, i) => $"@p{i}").ToArray();
-            var insertSql = $"INSERT INTO `{tableName}` ({string.Join(", ", columnNames.Select(WrapName))}) VALUES ({string.Join(", ", parameterNames)});";
-
-            while (await reader.ReadAsync(cancellationToken))
+            var bulkCopy = new MySqlBulkCopy(destination)
             {
-                await using var insertCmd = new MySqlCommand(insertSql, destination);
-                for (var i = 0; i < columnNames.Length; i++)
-                {
-                    insertCmd.Parameters.AddWithValue(parameterNames[i], reader.GetValue(i));
-                }
+                DestinationTableName = WrapName(tableName)
+            };
 
-                await insertCmd.ExecuteNonQueryAsync(cancellationToken);
+            try
+            {
+                await bulkCopy.WriteToServerAsync(reader, cancellationToken);
+            }
+            finally
+            {
+                var bulkCopyObject = (object)bulkCopy;
+
+                if (bulkCopyObject is IAsyncDisposable asyncDisposable)
+                {
+                    await asyncDisposable.DisposeAsync();
+                }
+                else if (bulkCopyObject is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
             }
         }
 
@@ -324,5 +329,15 @@ namespace CloneDBManager
 
 
         private static string WrapName(string name) => $"`{name}`";
+
+        private static string EnsureLocalInfileEnabled(string connectionString)
+        {
+            var builder = new MySqlConnectionStringBuilder(connectionString)
+            {
+                AllowLoadLocalInfile = true
+            };
+
+            return builder.ToString();
+        }
     }
 }
