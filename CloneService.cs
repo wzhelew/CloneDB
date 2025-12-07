@@ -182,6 +182,32 @@ namespace CloneDBManager
             }
             finally
             {
+                await DisposeBulkCopyAsync(bulkCopy);
+            }
+        }
+
+        private static async Task CopyDataWithBulkInsertAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
+        {
+            const int batchSize = 500;
+            var schema = reader.GetColumnSchema();
+            if (schema.Count == 0)
+            {
+                return;
+            }
+
+            var columnNames = schema.Select(col => WrapName(col.ColumnName)).ToArray();
+            var insertPrefix = $"INSERT INTO {WrapName(tableName)} ({string.Join(", ", columnNames)}) VALUES ";
+
+            var valueRows = new List<string>(batchSize);
+            var parameters = new List<MySqlParameter>(batchSize * columnNames.Length);
+            var parameterIndex = 0;
+
+            try
+            {
+                await bulkCopy.WriteToServerAsync(reader, cancellationToken);
+            }
+            finally
+            {
                 var placeholders = new string[columnNames.Length];
                 for (var i = 0; i < columnNames.Length; i++)
                 {
@@ -194,7 +220,6 @@ namespace CloneDBManager
 
                     parameters.Add(new MySqlParameter(paramName, value));
                 }
-            }
 
                 valueRows.Add($"({string.Join(", ", placeholders)})");
 
@@ -220,9 +245,12 @@ namespace CloneDBManager
             }
 
             var sql = insertPrefix + string.Join(", ", valueRows) + ";";
-            await using var insertCmd = new MySqlCommand(sql, destination);
-            insertCmd.Parameters.AddRange(parameters.ToArray());
-            await insertCmd.ExecuteNonQueryAsync(cancellationToken);
+
+            using (var insertCmd = new MySqlCommand(sql, destination))
+            {
+                insertCmd.Parameters.AddRange(parameters.ToArray());
+                await insertCmd.ExecuteNonQueryAsync(cancellationToken);
+            }
 
             valueRows.Clear();
             parameters.Clear();
