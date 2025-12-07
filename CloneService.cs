@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Common;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,6 +10,12 @@ using MySqlConnector;
 namespace CloneDBManager
 {
     public record TableCloneOption(string Name, bool CopyData);
+
+    public enum DataCopyMethod
+    {
+        BulkCopy,
+        BulkInsert
+    }
 
     public static class CloneService
     {
@@ -37,6 +44,7 @@ namespace CloneDBManager
             bool copyRoutines,
             bool copyViews,
             Action<string>? log,
+            DataCopyMethod copyMethod = DataCopyMethod.BulkCopy,
             CancellationToken cancellationToken = default)
         {
             await using var source = new MySqlConnection(EnsureLocalInfileEnabled(sourceConnectionString));
@@ -65,7 +73,7 @@ namespace CloneDBManager
                     if (table.CopyData)
                     {
                         log?.Invoke($"Copying data for '{table.Name}'...");
-                        await CopyDataAsync(source, destination, table.Name, cancellationToken);
+                        await CopyDataAsync(source, destination, table.Name, copyMethod, cancellationToken);
                     }
                 }
 
@@ -114,7 +122,7 @@ namespace CloneDBManager
             await createDestCmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
-        private static async Task CopyDataAsync(MySqlConnection source, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
+        private static async Task CopyDataAsync(MySqlConnection source, MySqlConnection destination, string tableName, DataCopyMethod method, CancellationToken cancellationToken)
         {
             await using var selectCmd = new MySqlCommand($"SELECT * FROM `{tableName}`;", source);
             await using var reader = await selectCmd.ExecuteReaderAsync(cancellationToken);
@@ -123,6 +131,20 @@ namespace CloneDBManager
                 return;
             }
 
+            switch (method)
+            {
+                case DataCopyMethod.BulkInsert:
+                    await CopyDataWithBulkInsertAsync(reader, destination, tableName, cancellationToken);
+                    break;
+                case DataCopyMethod.BulkCopy:
+                default:
+                    await CopyDataWithBulkCopyAsync(reader, destination, tableName, cancellationToken);
+                    break;
+            }
+        }
+
+        private static async Task CopyDataWithBulkCopyAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
+        {
             var bulkCopy = new MySqlBulkCopy(destination)
             {
                 DestinationTableName = WrapName(tableName)
@@ -145,6 +167,64 @@ namespace CloneDBManager
                     disposable.Dispose();
                 }
             }
+        }
+
+        private static async Task CopyDataWithBulkInsertAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
+        {
+            const int batchSize = 500;
+            var schema = reader.GetColumnSchema();
+            if (schema.Count == 0)
+            {
+                return;
+            }
+
+            var columnNames = schema.Select(col => WrapName(col.ColumnName)).ToArray();
+            var insertPrefix = $"INSERT INTO {WrapName(tableName)} ({string.Join(", ", columnNames)}) VALUES ";
+
+            var valueRows = new List<string>(batchSize);
+            var parameters = new List<MySqlParameter>(batchSize * columnNames.Length);
+            var parameterIndex = 0;
+
+            async Task FlushBatchAsync()
+            {
+                if (valueRows.Count == 0)
+                {
+                    return;
+                }
+
+                var sql = insertPrefix + string.Join(", ", valueRows) + ";";
+                await using var insertCmd = new MySqlCommand(sql, destination);
+                insertCmd.Parameters.AddRange(parameters.ToArray());
+                await insertCmd.ExecuteNonQueryAsync(cancellationToken);
+
+                valueRows.Clear();
+                parameters.Clear();
+            }
+
+            try
+            {
+                var placeholders = new string[columnNames.Length];
+                for (var i = 0; i < columnNames.Length; i++)
+                {
+                    var paramName = $"@p{parameterIndex++}";
+                    placeholders[i] = paramName;
+
+                    var value = await reader.IsDBNullAsync(i, cancellationToken)
+                        ? DBNull.Value
+                        : reader.GetValue(i);
+
+                    parameters.Add(new MySqlParameter(paramName, value));
+                }
+
+                valueRows.Add($"({string.Join(", ", placeholders)})");
+
+                if (valueRows.Count >= batchSize)
+                {
+                    await FlushBatchAsync();
+                }
+            }
+
+            await FlushBatchAsync();
         }
 
         private static async Task CloneViewsAsync(MySqlConnection source, MySqlConnection destination, CancellationToken cancellationToken)
