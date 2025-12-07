@@ -185,22 +185,6 @@ namespace CloneDBManager
             var parameters = new List<MySqlParameter>(batchSize * columnNames.Length);
             var parameterIndex = 0;
 
-            async Task FlushBatchAsync()
-            {
-                if (valueRows.Count == 0)
-                {
-                    return;
-                }
-
-                var sql = insertPrefix + string.Join(", ", valueRows) + ";";
-                await using var insertCmd = new MySqlCommand(sql, destination);
-                insertCmd.Parameters.AddRange(parameters.ToArray());
-                await insertCmd.ExecuteNonQueryAsync(cancellationToken);
-
-                valueRows.Clear();
-                parameters.Clear();
-            }
-
             try
             {
                 var placeholders = new string[columnNames.Length];
@@ -220,11 +204,32 @@ namespace CloneDBManager
 
                 if (valueRows.Count >= batchSize)
                 {
-                    await FlushBatchAsync();
+                    await FlushBatchAsync(destination, insertPrefix, valueRows, parameters, cancellationToken);
                 }
             }
 
-            await FlushBatchAsync();
+            await FlushBatchAsync(destination, insertPrefix, valueRows, parameters, cancellationToken);
+        }
+
+        private static async Task FlushBatchAsync(
+            MySqlConnection destination,
+            string insertPrefix,
+            List<string> valueRows,
+            List<MySqlParameter> parameters,
+            CancellationToken cancellationToken)
+        {
+            if (valueRows.Count == 0)
+            {
+                return;
+            }
+
+            var sql = insertPrefix + string.Join(", ", valueRows) + ";";
+            await using var insertCmd = new MySqlCommand(sql, destination);
+            insertCmd.Parameters.AddRange(parameters.ToArray());
+            await insertCmd.ExecuteNonQueryAsync(cancellationToken);
+
+            valueRows.Clear();
+            parameters.Clear();
         }
 
         private static async Task CloneViewsAsync(MySqlConnection source, MySqlConnection destination, CancellationToken cancellationToken)
