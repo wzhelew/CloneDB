@@ -134,11 +134,13 @@ namespace CloneDBManager
             }
             finally
             {
-                if (bulkCopy is IAsyncDisposable asyncDisposable)
+                var bulkCopyObject = (object)bulkCopy;
+
+                if (bulkCopyObject is IAsyncDisposable asyncDisposable)
                 {
                     await asyncDisposable.DisposeAsync();
                 }
-                else if (bulkCopy is IDisposable disposable)
+                else if (bulkCopyObject is IDisposable disposable)
                 {
                     disposable.Dispose();
                 }
