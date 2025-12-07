@@ -123,7 +123,7 @@ namespace CloneDBManager
                 return;
             }
 
-            using var bulkCopy = new MySqlBulkCopy(destination)
+            await using var bulkCopy = new MySqlBulkCopy(destination)
             {
                 DestinationTableName = tableName
             };
