@@ -171,7 +171,15 @@ namespace CloneDBManager
             var valueRows = new List<string>(batchSize);
             var parameters = new List<MySqlParameter>(batchSize * columnNames.Length);
 
-            while (await reader.ReadAsync(cancellationToken))
+            await bulkCopy.WriteToServerAsync(reader, cancellationToken);
+        }
+
+        private static async Task CopyDataWithBulkInsertAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
+        {
+            const int batchSize = 500;
+
+            var schema = reader.GetColumnSchema();
+            if (schema.Count == 0)
             {
                 var placeholders = new string[columnNames.Length];
                 for (var i = 0; i < columnNames.Length; i++)
