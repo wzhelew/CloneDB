@@ -156,16 +156,7 @@ namespace CloneDBManager
             }
             finally
             {
-                var bulkCopyObject = (object)bulkCopy;
-
-                if (bulkCopyObject is IAsyncDisposable asyncDisposable)
-                {
-                    await asyncDisposable.DisposeAsync();
-                }
-                else if (bulkCopyObject is IDisposable disposable)
-                {
-                    disposable.Dispose();
-                }
+                await DisposeBulkCopyAsync(bulkCopy);
             }
         }
 
@@ -187,6 +178,10 @@ namespace CloneDBManager
 
             try
             {
+                await bulkCopy.WriteToServerAsync(reader, cancellationToken);
+            }
+            finally
+            {
                 var placeholders = new string[columnNames.Length];
                 for (var i = 0; i < columnNames.Length; i++)
                 {
@@ -199,6 +194,7 @@ namespace CloneDBManager
 
                     parameters.Add(new MySqlParameter(paramName, value));
                 }
+            }
 
                 valueRows.Add($"({string.Join(", ", placeholders)})");
 
@@ -230,6 +226,18 @@ namespace CloneDBManager
 
             valueRows.Clear();
             parameters.Clear();
+        }
+
+        private static async ValueTask DisposeBulkCopyAsync(MySqlBulkCopy bulkCopy)
+        {
+            var asyncDisposable = bulkCopy as IAsyncDisposable;
+            if (asyncDisposable is not null)
+            {
+                await asyncDisposable.DisposeAsync();
+                return;
+            }
+
+            (bulkCopy as IDisposable)?.Dispose();
         }
 
         private static async Task CloneViewsAsync(MySqlConnection source, MySqlConnection destination, CancellationToken cancellationToken)
