@@ -143,12 +143,14 @@ namespace CloneDBManager
             }
         }
 
-        private static async Task CopyDataWithBulkCopyAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
+        private static async Task CopyDataWithBulkCopyAsync(
+            DbDataReader reader,
+            MySqlConnection destination,
+            string tableName,
+            CancellationToken cancellationToken)
         {
-            var bulkCopy = new MySqlBulkCopy(destination)
-            {
-                DestinationTableName = WrapName(tableName)
-            };
+            var bulkCopy = new MySqlBulkCopy(destination);
+            bulkCopy.DestinationTableName = WrapName(tableName);
 
             await bulkCopy.WriteToServerAsync(reader, cancellationToken);
         }
@@ -169,22 +171,7 @@ namespace CloneDBManager
             var valueRows = new List<string>(batchSize);
             var parameters = new List<MySqlParameter>(batchSize * columnNames.Length);
 
-            try
-            {
-                await bulkCopy.WriteToServerAsync(reader, cancellationToken);
-            }
-            finally
-            {
-                var bulkCopyObj = (object)bulkCopy;
-                if (bulkCopyObj is IAsyncDisposable asyncDisposable)
-                {
-                    await asyncDisposable.DisposeAsync();
-                }
-                else if (bulkCopyObj is IDisposable disposable)
-                {
-                    disposable.Dispose();
-                }
-            }
+            await bulkCopy.WriteToServerAsync(reader, cancellationToken);
         }
 
         private static async Task CopyDataWithBulkInsertAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
