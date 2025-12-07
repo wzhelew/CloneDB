@@ -14,7 +14,7 @@ namespace CloneDBManager
     {
         public static async Task<IReadOnlyList<string>> GetTablesAsync(string connectionString, CancellationToken cancellationToken = default)
         {
-            await using var connection = new MySqlConnection(connectionString);
+            await using var connection = new MySqlConnection(EnsureLocalInfileEnabled(connectionString));
             await connection.OpenAsync(cancellationToken);
 
             var tables = new List<string>();
@@ -39,8 +39,8 @@ namespace CloneDBManager
             Action<string>? log,
             CancellationToken cancellationToken = default)
         {
-            await using var source = new MySqlConnection(sourceConnectionString);
-            await using var destination = new MySqlConnection(destinationConnectionString);
+            await using var source = new MySqlConnection(EnsureLocalInfileEnabled(sourceConnectionString));
+            await using var destination = new MySqlConnection(EnsureLocalInfileEnabled(destinationConnectionString));
             await source.OpenAsync(cancellationToken);
             await destination.OpenAsync(cancellationToken);
 
@@ -329,5 +329,15 @@ namespace CloneDBManager
 
 
         private static string WrapName(string name) => $"`{name}`";
+
+        private static string EnsureLocalInfileEnabled(string connectionString)
+        {
+            var builder = new MySqlConnectionStringBuilder(connectionString)
+            {
+                AllowLoadLocalInfile = true
+            };
+
+            return builder.ToString();
+        }
     }
 }
