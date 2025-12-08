@@ -88,7 +88,7 @@ namespace CloneDBManager
                     if (table.CopyData)
                     {
                         log?.Invoke($"Copying data for '{table.Name}'...");
-                        await CopyDataAsync(source, destination, table.Name, copyMethod, cancellationToken);
+                        await CopyDataAsync(source, destination, table.Name, copyMethod, log, cancellationToken);
                     }
                 }
 
@@ -175,24 +175,60 @@ namespace CloneDBManager
             await createCmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
-        private static async Task CopyDataAsync(MySqlConnection source, MySqlConnection destination, string tableName, DataCopyMethod method, CancellationToken cancellationToken)
+        private static async Task CopyDataAsync(
+            MySqlConnection source,
+            MySqlConnection destination,
+            string tableName,
+            DataCopyMethod method,
+            Action<string>? log,
+            CancellationToken cancellationToken)
         {
-            await using var selectCmd = new MySqlCommand($"SELECT * FROM `{tableName}`;", source);
-            await using var reader = await selectCmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
-            if (!reader.HasRows)
-            {
-                return;
-            }
-
             switch (method)
             {
                 case DataCopyMethod.BulkInsert:
-                    await CopyDataWithBulkInsertAsync(reader, destination, tableName, cancellationToken);
+                    await CopyWithBulkInsertAsync();
                     break;
                 case DataCopyMethod.BulkCopy:
                 default:
-                    await CopyDataWithBulkCopyAsync(reader, destination, tableName, cancellationToken);
+                    var bulkCopied = await TryCopyWithBulkCopyAsync();
+                    if (!bulkCopied)
+                    {
+                        await CopyWithBulkInsertAsync();
+                    }
                     break;
+            }
+
+            async Task<bool> TryCopyWithBulkCopyAsync()
+            {
+                await using var selectCmd = new MySqlCommand($"SELECT * FROM `{tableName}`;", source);
+                await using var reader = await selectCmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
+                if (!reader.HasRows)
+                {
+                    return true;
+                }
+
+                try
+                {
+                    await CopyDataWithBulkCopyAsync(reader, destination, tableName, log, cancellationToken);
+                    return true;
+                }
+                catch (Exception ex) when (ex is MySqlException || ex is InvalidOperationException)
+                {
+                    log?.Invoke($"Bulk copy failed for '{tableName}', falling back to bulk insert: {ex.Message}");
+                    return false;
+                }
+            }
+
+            async Task CopyWithBulkInsertAsync()
+            {
+                await using var selectCmd = new MySqlCommand($"SELECT * FROM `{tableName}`;", source);
+                await using var reader = await selectCmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
+                if (!reader.HasRows)
+                {
+                    return;
+                }
+
+                await CopyDataWithBulkInsertAsync(reader, destination, tableName, cancellationToken);
             }
         }
 
@@ -200,9 +236,10 @@ namespace CloneDBManager
             DbDataReader reader,
             MySqlConnection destination,
             string tableName,
+            Action<string>? log,
             CancellationToken cancellationToken)
         {
-            await PrepareConnectionForBulkCopyAsync(destination, cancellationToken);
+            await PrepareConnectionForBulkCopyAsync(destination, log, cancellationToken);
 
             var bulkCopy = new MySqlBulkCopy(destination)
             {
@@ -283,7 +320,7 @@ namespace CloneDBManager
             parameters.Clear();
         }
 
-        private static async Task PrepareConnectionForBulkCopyAsync(MySqlConnection destination, CancellationToken cancellationToken)
+        private static async Task PrepareConnectionForBulkCopyAsync(MySqlConnection destination, Action<string>? log, CancellationToken cancellationToken)
         {
             var connectionCharacterSet = await GetConnectionCharacterSetAsync(destination, cancellationToken);
             if (string.IsNullOrWhiteSpace(connectionCharacterSet))
@@ -291,7 +328,19 @@ namespace CloneDBManager
                 return;
             }
 
-            var setNamesSql = $"SET NAMES {connectionCharacterSet};";
+            var supportedCharset = await GetSupportedCharacterSetAsync(destination, connectionCharacterSet, cancellationToken);
+            if (string.IsNullOrWhiteSpace(supportedCharset))
+            {
+                log?.Invoke($"Destination server does not recognize character set '{connectionCharacterSet}'. Skipping SET NAMES before bulk copy.");
+                return;
+            }
+
+            if (!string.Equals(supportedCharset, connectionCharacterSet, StringComparison.OrdinalIgnoreCase))
+            {
+                log?.Invoke($"Character set '{connectionCharacterSet}' not supported by destination; using '{supportedCharset}' for bulk copy.");
+            }
+
+            var setNamesSql = $"SET NAMES {supportedCharset};";
             await using var setNamesCmd = new MySqlCommand(setNamesSql, destination);
             await setNamesCmd.ExecuteNonQueryAsync(cancellationToken);
         }
@@ -530,6 +579,33 @@ LIMIT 1;";
             await using var cmd = new MySqlCommand("SELECT @@character_set_connection;", connection);
             var result = await cmd.ExecuteScalarAsync(cancellationToken);
             return result as string;
+        }
+
+        private static async Task<string?> GetSupportedCharacterSetAsync(MySqlConnection connection, string requestedCharacterSet, CancellationToken cancellationToken)
+        {
+            const string sql = "SELECT COUNT(*) FROM information_schema.CHARACTER_SETS WHERE CHARACTER_SET_NAME = @charset LIMIT 1;";
+
+            await using var cmd = new MySqlCommand(sql, connection);
+
+            async Task<bool> CharacterSetExistsAsync(string charset)
+            {
+                cmd.Parameters.Clear();
+                cmd.Parameters.AddWithValue("@charset", charset);
+                var result = await cmd.ExecuteScalarAsync(cancellationToken);
+                return Convert.ToInt32(result) > 0;
+            }
+
+            if (await CharacterSetExistsAsync(requestedCharacterSet))
+            {
+                return requestedCharacterSet;
+            }
+
+            if (requestedCharacterSet.Equals("utf8mb4", StringComparison.OrdinalIgnoreCase) && await CharacterSetExistsAsync("utf8"))
+            {
+                return "utf8";
+            }
+
+            return null;
         }
     }
 }
