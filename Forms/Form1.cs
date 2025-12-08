@@ -82,7 +82,8 @@ namespace CloneDBManager.Forms
                     chkRoutines.Checked,
                     chkViews.Checked,
                     AppendLog,
-                    GetSelectedCopyMethod());
+                    GetSelectedCopyMethod(),
+                    chkCreateDatabase.Checked);
             }
             catch (Exception ex)
             {
@@ -318,6 +319,7 @@ namespace CloneDBManager.Forms
             chkRoutines.Enabled = enabled;
             chkViews.Enabled = enabled;
             cmbCopyMethod.Enabled = enabled;
+            chkCreateDatabase.Enabled = enabled;
         }
 
         private DataCopyMethod GetSelectedCopyMethod()

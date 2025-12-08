@@ -45,11 +45,25 @@ namespace CloneDBManager
             bool copyViews,
             Action<string>? log,
             DataCopyMethod copyMethod = DataCopyMethod.BulkCopy,
+            bool createDestinationDatabaseIfMissing = false,
             CancellationToken cancellationToken = default)
         {
-            await using var source = new MySqlConnection(EnsureLocalInfileEnabled(sourceConnectionString));
-            await using var destination = new MySqlConnection(EnsureLocalInfileEnabled(destinationConnectionString));
+            var sourceBuilder = new MySqlConnectionStringBuilder(EnsureLocalInfileEnabled(sourceConnectionString));
+            var destinationBuilder = new MySqlConnectionStringBuilder(EnsureLocalInfileEnabled(destinationConnectionString));
+
+            await using var source = new MySqlConnection(sourceBuilder.ToString());
             await source.OpenAsync(cancellationToken);
+
+            if (createDestinationDatabaseIfMissing)
+            {
+                var sourceDatabase = string.IsNullOrWhiteSpace(sourceBuilder.Database)
+                    ? await GetCurrentDatabaseAsync(source, cancellationToken)
+                    : sourceBuilder.Database;
+
+                await EnsureDestinationDatabaseExistsAsync(source, sourceDatabase, destinationBuilder, cancellationToken);
+            }
+
+            await using var destination = new MySqlConnection(destinationBuilder.ToString());
             await destination.OpenAsync(cancellationToken);
 
             var originalForeignKeyState = await GetForeignKeyChecksAsync(destination, cancellationToken);
@@ -120,6 +134,44 @@ namespace CloneDBManager
 
             await using var createDestCmd = new MySqlCommand(createStatement, destination);
             await createDestCmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        private static async Task EnsureDestinationDatabaseExistsAsync(
+            MySqlConnection source,
+            string sourceDatabase,
+            MySqlConnectionStringBuilder destinationBuilder,
+            CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(destinationBuilder.Database) || string.IsNullOrWhiteSpace(sourceDatabase))
+            {
+                return;
+            }
+
+            var (characterSet, collation) = await GetDatabaseCharsetAndCollationAsync(source, sourceDatabase, cancellationToken);
+
+            var adminBuilder = new MySqlConnectionStringBuilder(destinationBuilder.ToString())
+            {
+                Database = string.Empty
+            };
+
+            await using var adminConnection = new MySqlConnection(adminBuilder.ToString());
+            await adminConnection.OpenAsync(cancellationToken);
+
+            var createSql = $"CREATE DATABASE IF NOT EXISTS {WrapName(destinationBuilder.Database)}";
+            if (!string.IsNullOrEmpty(characterSet))
+            {
+                createSql += $" CHARACTER SET {characterSet}";
+            }
+
+            if (!string.IsNullOrEmpty(collation))
+            {
+                createSql += $" COLLATE {collation}";
+            }
+
+            createSql += ";";
+
+            await using var createCmd = new MySqlCommand(createSql, adminConnection);
+            await createCmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
         private static async Task CopyDataAsync(MySqlConnection source, MySqlConnection destination, string tableName, DataCopyMethod method, CancellationToken cancellationToken)
@@ -340,6 +392,30 @@ namespace CloneDBManager
             await using var cmd = new MySqlCommand("SELECT DATABASE();", connection);
             var result = await cmd.ExecuteScalarAsync(cancellationToken);
             return Convert.ToString(result) ?? string.Empty;
+        }
+
+        private static async Task<(string? CharacterSet, string? Collation)> GetDatabaseCharsetAndCollationAsync(
+            MySqlConnection connection,
+            string databaseName,
+            CancellationToken cancellationToken)
+        {
+            const string sql = @"SELECT DEFAULT_CHARACTER_SET_NAME, DEFAULT_COLLATION_NAME
+FROM information_schema.schemata
+WHERE SCHEMA_NAME = @schemaName
+LIMIT 1;";
+
+            await using var cmd = new MySqlCommand(sql, connection);
+            cmd.Parameters.AddWithValue("@schemaName", databaseName);
+
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                var characterSet = reader.IsDBNull(0) ? null : reader.GetString(0);
+                var collation = reader.IsDBNull(1) ? null : reader.GetString(1);
+                return (characterSet, collation);
+            }
+
+            return (null, null);
         }
 
         private static async Task CloneRoutinesAsync(MySqlConnection source, MySqlConnection destination, CancellationToken cancellationToken)

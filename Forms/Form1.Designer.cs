@@ -56,6 +56,7 @@ namespace CloneDBManager.Forms
             this.btnLoadTemplate = new System.Windows.Forms.Button();
             this.btnSqlDump = new System.Windows.Forms.Button();
             this.btnSqlRestore = new System.Windows.Forms.Button();
+            this.chkCreateDatabase = new System.Windows.Forms.CheckBox();
             this.grpSource.SuspendLayout();
             this.grpDestination.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvTables)).BeginInit();
@@ -173,7 +174,8 @@ namespace CloneDBManager.Forms
             this.label1.Text = "Host";
             // 
             // grpDestination
-            // 
+            //
+            this.grpDestination.Controls.Add(this.chkCreateDatabase);
             this.grpDestination.Controls.Add(this.txtDestinationDatabase);
             this.grpDestination.Controls.Add(this.label8);
             this.grpDestination.Controls.Add(this.txtDestinationPassword);
@@ -352,6 +354,18 @@ namespace CloneDBManager.Forms
             this.chkViews.Text = "Copy views";
             this.chkViews.UseVisualStyleBackColor = true;
             //
+            // chkCreateDatabase
+            //
+            this.chkCreateDatabase.AutoSize = true;
+            this.chkCreateDatabase.Checked = true;
+            this.chkCreateDatabase.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.chkCreateDatabase.Location = new System.Drawing.Point(20, 178);
+            this.chkCreateDatabase.Name = "chkCreateDatabase";
+            this.chkCreateDatabase.Size = new System.Drawing.Size(360, 24);
+            this.chkCreateDatabase.TabIndex = 5;
+            this.chkCreateDatabase.Text = "Създай базата ако липсва (същия енкодинг)";
+            this.chkCreateDatabase.UseVisualStyleBackColor = true;
+            //
             // lblCopyMethod
             //
             this.lblCopyMethod.AutoSize = true;
@@ -514,5 +528,6 @@ namespace CloneDBManager.Forms
         private System.Windows.Forms.Button btnLoadTemplate;
         private System.Windows.Forms.Button btnSqlDump;
         private System.Windows.Forms.Button btnSqlRestore;
+        private System.Windows.Forms.CheckBox chkCreateDatabase;
     }
 }
