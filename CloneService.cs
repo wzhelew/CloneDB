@@ -442,12 +442,8 @@ namespace CloneDBManager
                 await using var dropCmd = new MySqlCommand($"DROP TRIGGER IF EXISTS `{trigger}`;", destination);
                 await dropCmd.ExecuteNonQueryAsync(cancellationToken);
 
-                var createTriggerScript = new MySqlScript(destination, $"{createStatement}//")
-                {
-                    Delimiter = "//"
-                };
-
-                await createTriggerScript.ExecuteAsync(cancellationToken);
+                await using var createTriggerCommand = new MySqlCommand(createStatement, destination);
+                await createTriggerCommand.ExecuteNonQueryAsync(cancellationToken);
             }
         }
 
