@@ -149,11 +149,44 @@ namespace CloneDBManager
             string tableName,
             CancellationToken cancellationToken)
         {
-            var bulkCopy = new MySqlBulkCopy(destination);
-            bulkCopy.DestinationTableName = WrapName(tableName);
+            var bulkCopy = new MySqlBulkCopy(destination)
+            {
+                DestinationTableName = WrapName(tableName)
+            };
 
-            await bulkCopy.WriteToServerAsync(reader, cancellationToken);
+            try
+            {
+                await bulkCopy.WriteToServerAsync(reader, cancellationToken);
+            }
+            finally
+            {
+                var asyncDisposable = bulkCopy as IAsyncDisposable;
+                if (asyncDisposable != null)
+                {
+                    await asyncDisposable.DisposeAsync();
+                }
+                else
+                {
+                    (bulkCopy as IDisposable)?.Dispose();
+                }
+            }
         }
+
+        private static async Task CopyDataWithBulkInsertAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
+        {
+            const int batchSize = 500;
+
+            var schema = reader.GetColumnSchema();
+            if (schema.Count == 0)
+            {
+                return;
+            }
+
+            var columnNames = schema.Select(col => WrapName(col.ColumnName)).ToArray();
+            var insertPrefix = $"INSERT INTO {WrapName(tableName)} ({string.Join(", ", columnNames)}) VALUES ";
+
+            var valueRows = new List<string>(batchSize);
+            var parameters = new List<MySqlParameter>(batchSize * columnNames.Length);
 
         private static async Task CopyDataWithBulkInsertAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
         {
