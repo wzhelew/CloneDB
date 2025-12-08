@@ -207,6 +207,12 @@ namespace CloneDBManager
                 DestinationTableName = WrapName(tableName)
             };
 
+            var connectionCharacterSet = await GetConnectionCharacterSetAsync(destination, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(connectionCharacterSet))
+            {
+                bulkCopy.CharacterSet = connectionCharacterSet;
+            }
+
             await bulkCopy.WriteToServerAsync(reader, cancellationToken);
         }
 
@@ -508,6 +514,13 @@ LIMIT 1;";
             };
 
             return builder.ToString();
+        }
+
+        private static async Task<string?> GetConnectionCharacterSetAsync(MySqlConnection connection, CancellationToken cancellationToken)
+        {
+            await using var cmd = new MySqlCommand("SELECT @@character_set_connection;", connection);
+            var result = await cmd.ExecuteScalarAsync(cancellationToken);
+            return result as string;
         }
     }
 }
