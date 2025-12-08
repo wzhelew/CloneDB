@@ -149,7 +149,7 @@ namespace CloneDBManager
             string tableName,
             CancellationToken cancellationToken)
         {
-            using var bulkCopy = new MySqlBulkCopy(destination)
+            var bulkCopy = new MySqlBulkCopy(destination)
             {
                 DestinationTableName = WrapName(tableName)
             };
