@@ -175,28 +175,33 @@ namespace CloneDBManager
 
             try
             {
-                var placeholders = new string[columnNames.Length];
-                for (var i = 0; i < columnNames.Length; i++)
+                while (await reader.ReadAsync(cancellationToken))
                 {
-                    var paramName = $"@p{parameters.Count}";
-                    placeholders[i] = paramName;
+                    var placeholders = new string[columnNames.Length];
+                    for (var i = 0; i < columnNames.Length; i++)
+                    {
+                        var paramName = $"@p{parameters.Count}";
+                        placeholders[i] = paramName;
 
-                    var value = await reader.IsDBNullAsync(i, cancellationToken)
-                        ? DBNull.Value
-                        : reader.GetValue(i);
+                        var value = await reader.IsDBNullAsync(i, cancellationToken)
+                            ? DBNull.Value
+                            : reader.GetValue(i);
 
-                    parameters.Add(new MySqlParameter(paramName, value));
-                }
+                        parameters.Add(new MySqlParameter(paramName, value));
+                    }
 
-                valueRows.Add($"({string.Join(", ", placeholders)})");
+                    valueRows.Add($"({string.Join(", ", placeholders)})");
 
-                if (valueRows.Count >= batchSize)
-                {
-                    await FlushBatchAsync(destination, insertPrefix, valueRows, parameters, cancellationToken);
+                    if (valueRows.Count >= batchSize)
+                    {
+                        await FlushBatchAsync(destination, insertPrefix, valueRows, parameters, cancellationToken);
+                    }
                 }
             }
-
-            await FlushBatchAsync(destination, insertPrefix, valueRows, parameters, cancellationToken);
+            finally
+            {
+                await FlushBatchAsync(destination, insertPrefix, valueRows, parameters, cancellationToken);
+            }
         }
 
         private static async Task FlushBatchAsync(
