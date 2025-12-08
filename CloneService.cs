@@ -206,7 +206,11 @@ namespace CloneDBManager
 
             var bulkCopy = new MySqlBulkCopy(destination)
             {
-                DestinationTableName = WrapName(tableName)
+                DestinationTableName = WrapName(tableName),
+                FieldTerminator = "\t",
+                LineTerminator = "\n",
+                EscapeCharacter = '\\',
+                FieldQuotationCharacter = '"'
             };
 
             await bulkCopy.WriteToServerAsync(reader, cancellationToken);
