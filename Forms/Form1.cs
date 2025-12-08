@@ -14,6 +14,7 @@ namespace CloneDBManager.Forms
         public Form1()
         {
             InitializeComponent();
+            cmbCopyMethod.DataSource = Enum.GetValues(typeof(DataCopyMethod));
         }
 
         private async void btnLoadTables_Click(object sender, EventArgs e)
@@ -80,7 +81,8 @@ namespace CloneDBManager.Forms
                     chkTriggers.Checked,
                     chkRoutines.Checked,
                     chkViews.Checked,
-                    AppendLog);
+                    AppendLog,
+                    GetSelectedCopyMethod());
             }
             catch (Exception ex)
             {
@@ -128,7 +130,8 @@ namespace CloneDBManager.Forms
                 Password = password,
                 Database = database,
                 SslMode = MySqlConnector.MySqlSslMode.None,
-                AllowUserVariables = true
+                AllowUserVariables = true,
+                AllowLoadLocalInfile = true
             };
         }
 
@@ -314,6 +317,14 @@ namespace CloneDBManager.Forms
             chkTriggers.Enabled = enabled;
             chkRoutines.Enabled = enabled;
             chkViews.Enabled = enabled;
+            cmbCopyMethod.Enabled = enabled;
+        }
+
+        private DataCopyMethod GetSelectedCopyMethod()
+        {
+            return cmbCopyMethod.SelectedItem is DataCopyMethod method
+                ? method
+                : DataCopyMethod.BulkCopy;
         }
 
         private string GetTemplateFilePath()
