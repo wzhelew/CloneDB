@@ -206,6 +206,26 @@ namespace CloneDBManager
                 {
                     return true;
                 }
+            }
+            finally
+            {
+                await FlushBatchAsync(destination, insertPrefix, valueRows, parameters, cancellationToken);
+            }
+        }
+
+        private static async Task FlushBatchAsync(
+            MySqlConnection destination,
+            string insertPrefix,
+            List<string> valueRows,
+            List<MySqlParameter> parameters,
+            CancellationToken cancellationToken)
+        {
+            if (valueRows.Count == 0)
+            {
+                return;
+            }
+
+            var sql = insertPrefix + string.Join(", ", valueRows) + ";";
 
                 try
                 {
@@ -442,8 +462,18 @@ namespace CloneDBManager
                 await using var dropCmd = new MySqlCommand($"DROP TRIGGER IF EXISTS `{trigger}`;", destination);
                 await dropCmd.ExecuteNonQueryAsync(cancellationToken);
 
-                await using var createTriggerCommand = new MySqlCommand(createStatement, destination);
-                await createTriggerCommand.ExecuteNonQueryAsync(cancellationToken);
+                await using var setSqlCmd = new MySqlCommand("SET @trigger_sql = @sql;", destination);
+                setSqlCmd.Parameters.AddWithValue("@sql", createStatement);
+                await setSqlCmd.ExecuteNonQueryAsync(cancellationToken);
+
+                await using var prepareCmd = new MySqlCommand("PREPARE trg_stmt FROM @trigger_sql;", destination);
+                await prepareCmd.ExecuteNonQueryAsync(cancellationToken);
+
+                await using var executeCmd = new MySqlCommand("EXECUTE trg_stmt;", destination);
+                await executeCmd.ExecuteNonQueryAsync(cancellationToken);
+
+                await using var deallocateCmd = new MySqlCommand("DEALLOCATE PREPARE trg_stmt;", destination);
+                await deallocateCmd.ExecuteNonQueryAsync(cancellationToken);
             }
         }
 
@@ -568,7 +598,8 @@ LIMIT 1;";
         {
             var builder = new MySqlConnectionStringBuilder(connectionString)
             {
-                AllowLoadLocalInfile = true
+                AllowLoadLocalInfile = true,
+                AllowUserVariables = true
             };
 
             return builder.ToString();
