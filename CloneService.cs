@@ -202,16 +202,12 @@ namespace CloneDBManager
             string tableName,
             CancellationToken cancellationToken)
         {
+            await PrepareConnectionForBulkCopyAsync(destination, cancellationToken);
+
             var bulkCopy = new MySqlBulkCopy(destination)
             {
                 DestinationTableName = WrapName(tableName)
             };
-
-            var connectionCharacterSet = await GetConnectionCharacterSetAsync(destination, cancellationToken);
-            if (!string.IsNullOrWhiteSpace(connectionCharacterSet))
-            {
-                bulkCopy.CharacterSet = connectionCharacterSet;
-            }
 
             await bulkCopy.WriteToServerAsync(reader, cancellationToken);
         }
@@ -285,6 +281,19 @@ namespace CloneDBManager
 
             valueRows.Clear();
             parameters.Clear();
+        }
+
+        private static async Task PrepareConnectionForBulkCopyAsync(MySqlConnection destination, CancellationToken cancellationToken)
+        {
+            var connectionCharacterSet = await GetConnectionCharacterSetAsync(destination, cancellationToken);
+            if (string.IsNullOrWhiteSpace(connectionCharacterSet))
+            {
+                return;
+            }
+
+            var setNamesSql = $"SET NAMES {connectionCharacterSet};";
+            await using var setNamesCmd = new MySqlCommand(setNamesSql, destination);
+            await setNamesCmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
         private static async Task CloneViewsAsync(MySqlConnection source, MySqlConnection destination, CancellationToken cancellationToken)
