@@ -164,6 +164,22 @@ namespace CloneDBManager
             }
         }
 
+        private static async Task CopyDataWithBulkInsertAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
+        {
+            const int batchSize = 500;
+
+            var schema = reader.GetColumnSchema();
+            if (schema.Count == 0)
+            {
+                return;
+            }
+
+            var columnNames = schema.Select(col => WrapName(col.ColumnName)).ToArray();
+            var insertPrefix = $"INSERT INTO {WrapName(tableName)} ({string.Join(", ", columnNames)}) VALUES ";
+
+            var valueRows = new List<string>(batchSize);
+            var parameters = new List<MySqlParameter>(batchSize * columnNames.Length);
+
         private static Task CopyDataWithBulkInsertAsync(
             DbDataReader reader,
             MySqlConnection destination,
@@ -202,41 +218,6 @@ namespace CloneDBManager
         }
 
         private static async Task CopyDataWithBatchInsertAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
-        {
-            const int batchSize = 500;
-
-            var schema = reader.GetColumnSchema();
-            if (schema.Count == 0)
-            {
-                return;
-            }
-
-            var columnNames = schema.Select(col => WrapName(col.ColumnName)).ToArray();
-            var insertPrefix = $"INSERT INTO {WrapName(tableName)} ({string.Join(", ", columnNames)}) VALUES ";
-
-            var valueRows = new List<string>(batchSize);
-            var parameters = new List<MySqlParameter>(batchSize * columnNames.Length);
-
-        private static async Task CopyDataWithBulkInsertAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
-        {
-            const int batchSize = 500;
-
-            var schema = reader.GetColumnSchema();
-            if (schema.Count == 0)
-            {
-                return;
-            }
-
-            var columnNames = schema.Select(col => WrapName(col.ColumnName)).ToArray();
-            var insertPrefix = $"INSERT INTO {WrapName(tableName)} ({string.Join(", ", columnNames)}) VALUES ";
-
-            var valueRows = new List<string>(batchSize);
-            var parameters = new List<MySqlParameter>(batchSize * columnNames.Length);
-
-            await bulkCopy.WriteToServerAsync(reader, cancellationToken);
-        }
-
-        private static async Task CopyDataWithBulkInsertAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
         {
             const int batchSize = 500;
 
