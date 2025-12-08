@@ -5,6 +5,7 @@ using System.Data.Common;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text;
 using MySqlConnector;
 
 namespace CloneDBManager
@@ -30,7 +31,7 @@ namespace CloneDBManager
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
             {
-                tables.Add(reader.GetString(0));
+                tables.Add(GetStringValue(reader, 0));
             }
 
             return tables;
@@ -126,7 +127,7 @@ namespace CloneDBManager
                 return;
             }
 
-            var createStatement = reader.GetString(1);
+            var createStatement = GetStringValue(reader, 1);
             await reader.CloseAsync();
 
             await using var dropCmd = new MySqlCommand($"DROP TABLE IF EXISTS `{tableName}`;", destination);
@@ -288,7 +289,7 @@ namespace CloneDBManager
             var views = new List<string>();
             while (await reader.ReadAsync(cancellationToken))
             {
-                views.Add(reader.GetString(0));
+                views.Add(GetStringValue(reader, 0));
             }
             await reader.CloseAsync();
 
@@ -302,7 +303,7 @@ namespace CloneDBManager
                     continue;
                 }
 
-                var createStatement = createReader.GetString(1);
+                var createStatement = GetStringValue(createReader, 1);
                 await createReader.CloseAsync();
 
                 definitions.Add((viewName, createStatement));
@@ -350,7 +351,7 @@ namespace CloneDBManager
             var triggers = new List<string>();
             while (await reader.ReadAsync(cancellationToken))
             {
-                triggers.Add(reader.GetString(0));
+                triggers.Add(GetStringValue(reader, 0));
             }
             await reader.CloseAsync();
 
@@ -366,7 +367,7 @@ namespace CloneDBManager
                     continue;
                 }
 
-                var createStatement = createReader.GetString(2);
+                var createStatement = GetStringValue(createReader, 2);
                 await createReader.CloseAsync();
 
                 if (!string.IsNullOrEmpty(sourceSchema) && !string.IsNullOrEmpty(destinationSchema) && !sourceSchema.Equals(destinationSchema, StringComparison.OrdinalIgnoreCase))
@@ -410,8 +411,8 @@ LIMIT 1;";
             await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
             if (await reader.ReadAsync(cancellationToken))
             {
-                var characterSet = reader.IsDBNull(0) ? null : reader.GetString(0);
-                var collation = reader.IsDBNull(1) ? null : reader.GetString(1);
+                var characterSet = reader.IsDBNull(0) ? null : GetStringValue(reader, 0);
+                var collation = reader.IsDBNull(1) ? null : GetStringValue(reader, 1);
                 return (characterSet, collation);
             }
 
@@ -426,7 +427,7 @@ LIMIT 1;";
             var routines = new List<(string Name, string Type)>();
             while (await reader.ReadAsync(cancellationToken))
             {
-                routines.Add((reader.GetString(0), reader.GetString(1)));
+                routines.Add((GetStringValue(reader, 0), GetStringValue(reader, 1)));
             }
             await reader.CloseAsync();
 
@@ -443,7 +444,7 @@ LIMIT 1;";
                     continue;
                 }
 
-                var createStatement = createReader.GetString(2);
+                var createStatement = GetStringValue(createReader, 2);
                 await createReader.CloseAsync();
 
                 var dropSql = routine.Type.Equals("FUNCTION", StringComparison.OrdinalIgnoreCase)
@@ -479,6 +480,22 @@ LIMIT 1;";
         {
             await using var cmd = new MySqlCommand($"SET FOREIGN_KEY_CHECKS={value};", connection);
             await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        private static string GetStringValue(DbDataReader reader, int ordinal)
+        {
+            var value = reader.GetValue(ordinal);
+            if (value is string stringValue)
+            {
+                return stringValue;
+            }
+
+            if (value is byte[] bytes)
+            {
+                return Encoding.UTF8.GetString(bytes);
+            }
+
+            return Convert.ToString(value) ?? string.Empty;
         }
 
         private static string WrapName(string name) => $"`{name}`";
