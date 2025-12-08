@@ -206,6 +206,26 @@ namespace CloneDBManager
                 {
                     return true;
                 }
+            }
+            finally
+            {
+                await FlushBatchAsync(destination, insertPrefix, valueRows, parameters, cancellationToken);
+            }
+        }
+
+        private static async Task FlushBatchAsync(
+            MySqlConnection destination,
+            string insertPrefix,
+            List<string> valueRows,
+            List<MySqlParameter> parameters,
+            CancellationToken cancellationToken)
+        {
+            if (valueRows.Count == 0)
+            {
+                return;
+            }
+
+            var sql = insertPrefix + string.Join(", ", valueRows) + ";";
 
                 try
                 {
