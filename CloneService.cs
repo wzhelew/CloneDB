@@ -131,16 +131,16 @@ namespace CloneDBManager
                 return;
             }
 
-            switch (method)
-            {
-                case DataCopyMethod.BulkInsert:
-                    await CopyDataWithBulkInsertAsync(reader, destination, tableName, cancellationToken);
-                    break;
-                case DataCopyMethod.BulkCopy:
-                default:
-                    await CopyDataWithBulkCopyAsync(reader, destination, tableName, cancellationToken);
-                    break;
-            }
+                switch (method)
+                {
+                    case DataCopyMethod.BulkInsert:
+                        await CopyDataWithBatchInsertAsync(reader, destination, tableName, cancellationToken);
+                        break;
+                    case DataCopyMethod.BulkCopy:
+                    default:
+                        await CopyDataWithBulkCopyAsync(reader, destination, tableName, cancellationToken);
+                        break;
+                }
         }
 
         private static async Task CopyDataWithBulkCopyAsync(
@@ -156,6 +156,22 @@ namespace CloneDBManager
 
             await bulkCopy.WriteToServerAsync(reader, cancellationToken);
         }
+
+        private static async Task CopyDataWithBatchInsertAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
+        {
+            const int batchSize = 500;
+
+            var schema = reader.GetColumnSchema();
+            if (schema.Count == 0)
+            {
+                return;
+            }
+
+            var columnNames = schema.Select(col => WrapName(col.ColumnName)).ToArray();
+            var insertPrefix = $"INSERT INTO {WrapName(tableName)} ({string.Join(", ", columnNames)}) VALUES ";
+
+            var valueRows = new List<string>(batchSize);
+            var parameters = new List<MySqlParameter>(batchSize * columnNames.Length);
 
         private static async Task CopyDataWithBulkInsertAsync(DbDataReader reader, MySqlConnection destination, string tableName, CancellationToken cancellationToken)
         {
