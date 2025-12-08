@@ -154,7 +154,14 @@ namespace CloneDBManager
                 DestinationTableName = WrapName(tableName)
             };
 
-            await bulkCopy.WriteToServerAsync(reader, cancellationToken);
+            try
+            {
+                await bulkCopy.WriteToServerAsync(reader, cancellationToken);
+            }
+            finally
+            {
+                bulkCopy.Dispose();
+            }
         }
 
         private static Task CopyDataWithBulkInsertAsync(
