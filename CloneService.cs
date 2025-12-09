@@ -448,6 +448,8 @@ namespace CloneDBManager
                     createStatement = createStatement.Replace($"`{sourceSchema}`.", $"`{destinationSchema}`.");
                 }
 
+                createStatement = NormalizeTriggerCreateStatement(createStatement);
+
                 await using var dropCmd = new MySqlCommand($"DROP TRIGGER IF EXISTS `{trigger}`;", destination);
                 await dropCmd.ExecuteNonQueryAsync(cancellationToken);
 
@@ -547,6 +549,54 @@ LIMIT 1;";
             await using var cmd = new MySqlCommand("SELECT @@FOREIGN_KEY_CHECKS;", connection);
             var result = await cmd.ExecuteScalarAsync(cancellationToken);
             return Convert.ToUInt32(result);
+        }
+
+        private static string NormalizeTriggerCreateStatement(string createStatement)
+        {
+            var cleaned = StripVersionedComments(createStatement);
+            cleaned = StripDefinerClause(cleaned);
+            return cleaned.Trim();
+        }
+
+        private static string StripVersionedComments(string sql)
+        {
+            var builder = new StringBuilder();
+            for (var i = 0; i < sql.Length; i++)
+            {
+                if (i + 2 < sql.Length && sql[i] == '/' && sql[i + 1] == '*' && sql[i + 2] == '!')
+                {
+                    var endComment = sql.IndexOf("*/", i + 3, StringComparison.Ordinal);
+                    if (endComment < 0)
+                    {
+                        break;
+                    }
+
+                    i = endComment + 1;
+                    continue;
+                }
+
+                builder.Append(sql[i]);
+            }
+
+            return builder.ToString();
+        }
+
+        private static string StripDefinerClause(string sql)
+        {
+            const string definerKeyword = " DEFINER=";
+            var definerIndex = sql.IndexOf(definerKeyword, StringComparison.OrdinalIgnoreCase);
+            if (definerIndex < 0)
+            {
+                return sql;
+            }
+
+            var triggerIndex = sql.IndexOf(" TRIGGER", definerIndex, StringComparison.OrdinalIgnoreCase);
+            if (triggerIndex < 0)
+            {
+                return sql;
+            }
+
+            return sql.Remove(definerIndex, triggerIndex - definerIndex);
         }
 
         private static async Task<bool> IsBaseTableAsync(MySqlConnection connection, string tableName, CancellationToken cancellationToken)
