@@ -431,23 +431,35 @@ namespace CloneDBManager
             var sourceSchema = await GetCurrentDatabaseAsync(source, cancellationToken);
             var destinationSchema = await GetCurrentDatabaseAsync(destination, cancellationToken);
 
+            const string triggerDetailsSql = @"SELECT t.ACTION_TIMING, t.EVENT_MANIPULATION, t.EVENT_OBJECT_TABLE, p.body
+FROM information_schema.triggers t
+JOIN mysql.proc p ON p.db = t.TRIGGER_SCHEMA AND p.name = t.TRIGGER_NAME AND p.type = 'TRIGGER'
+WHERE t.TRIGGER_SCHEMA = DATABASE() AND t.TRIGGER_NAME = @triggerName
+LIMIT 1;";
+
             foreach (var trigger in triggers)
             {
-                await using var createCmd = new MySqlCommand($"SHOW CREATE TRIGGER `{trigger}`;", source);
+                await using var createCmd = new MySqlCommand(triggerDetailsSql, source);
+                createCmd.Parameters.AddWithValue("@triggerName", trigger);
+
                 await using var createReader = await createCmd.ExecuteReaderAsync(cancellationToken);
                 if (!await createReader.ReadAsync(cancellationToken))
                 {
                     continue;
                 }
 
-                var createStatement = GetStringValue(createReader, 2);
+                var actionTiming = GetStringValue(createReader, 0);
+                var eventManipulation = GetStringValue(createReader, 1);
+                var eventTable = GetStringValue(createReader, 2);
+                var body = GetStringValue(createReader, 3).Trim().TrimEnd(';');
                 await createReader.CloseAsync();
 
                 if (!string.IsNullOrEmpty(sourceSchema) && !string.IsNullOrEmpty(destinationSchema) && !sourceSchema.Equals(destinationSchema, StringComparison.OrdinalIgnoreCase))
                 {
-                    createStatement = createStatement.Replace($"`{sourceSchema}`.", $"`{destinationSchema}`.");
+                    eventTable = eventTable.Replace(sourceSchema, destinationSchema, StringComparison.OrdinalIgnoreCase);
                 }
 
+                var createStatement = $"CREATE TRIGGER {WrapName(trigger)} {actionTiming} {eventManipulation} ON {WrapName(eventTable)} FOR EACH ROW {body};";
                 createStatement = NormalizeTriggerCreateStatement(createStatement);
 
                 await using var dropCmd = new MySqlCommand($"DROP TRIGGER `{trigger}`;", destination);
