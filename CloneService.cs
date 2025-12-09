@@ -130,8 +130,8 @@ namespace CloneDBManager
             var createStatement = GetStringValue(reader, 1);
             await reader.CloseAsync();
 
-            await using var dropCmd = new MySqlCommand($"DROP TABLE IF EXISTS `{tableName}`;", destination);
-            await dropCmd.ExecuteNonQueryAsync(cancellationToken);
+            await using var dropTableCmd = new MySqlCommand($"DROP TABLE IF EXISTS `{tableName}`;", destination);
+            await dropTableCmd.ExecuteNonQueryAsync(cancellationToken);
 
             await using var createDestCmd = new MySqlCommand(createStatement, destination);
             await createDestCmd.ExecuteNonQueryAsync(cancellationToken);
@@ -384,8 +384,8 @@ namespace CloneDBManager
 
             foreach (var (name, _) in definitions)
             {
-                await using var dropCmd = new MySqlCommand($"DROP VIEW IF EXISTS `{name}`;", destination);
-                await dropCmd.ExecuteNonQueryAsync(cancellationToken);
+                await using var dropViewCmd = new MySqlCommand($"DROP VIEW IF EXISTS `{name}`;", destination);
+                await dropViewCmd.ExecuteNonQueryAsync(cancellationToken);
             }
 
             var pending = new List<(string Name, string CreateSql)>(definitions);
@@ -464,48 +464,16 @@ LIMIT 1;";
                 var createStatement = $"CREATE TRIGGER {WrapName(trigger)} {actionTiming} {eventManipulation} ON {WrapName(eventTable)} FOR EACH ROW {body};";
                 createStatement = NormalizeTriggerCreateStatement(createStatement);
 
-                await using var dropCmd = new MySqlCommand($"DROP TRIGGER `{trigger}`;", destination);
                 try
                 {
-                    await dropCmd.ExecuteNonQueryAsync(cancellationToken);
+                    await ExecuteTextNonQueryAsync(destination, $"DROP TRIGGER `{trigger}`;", cancellationToken);
                 }
                 catch (MySqlException ex) when (ex.Number == 1360)
                 {
                     // Trigger is missing on the destination; safe to ignore before recreation.
                 }
 
-                await using var dropCmd = new MySqlCommand($"DROP TRIGGER `{trigger}`;", destination);
-                try
-                {
-                    await dropCmd.ExecuteNonQueryAsync(cancellationToken);
-                }
-                catch (MySqlException ex) when (ex.Number == 1360)
-                {
-                    // Trigger is missing on the destination; safe to ignore before recreation.
-                }
-
-                await using var dropCmd = new MySqlCommand($"DROP TRIGGER `{trigger}`;", destination);
-                try
-                {
-                    await dropCmd.ExecuteNonQueryAsync(cancellationToken);
-                }
-                catch (MySqlException ex) when (ex.Number == 1360)
-                {
-                    // Trigger is missing on the destination; safe to ignore before recreation.
-                }
-
-                await using var setSqlCmd = new MySqlCommand("SET @trigger_sql = @sql;", destination);
-                setSqlCmd.Parameters.AddWithValue("@sql", createStatement);
-                await setSqlCmd.ExecuteNonQueryAsync(cancellationToken);
-
-                await using var prepareCmd = new MySqlCommand("PREPARE trg_stmt FROM @trigger_sql;", destination);
-                await prepareCmd.ExecuteNonQueryAsync(cancellationToken);
-
-                await using var executeCmd = new MySqlCommand("EXECUTE trg_stmt;", destination);
-                await executeCmd.ExecuteNonQueryAsync(cancellationToken);
-
-                await using var deallocateCmd = new MySqlCommand("DEALLOCATE PREPARE trg_stmt;", destination);
-                await deallocateCmd.ExecuteNonQueryAsync(cancellationToken);
+                await ExecuteTextNonQueryAsync(destination, createStatement, cancellationToken);
             }
         }
 
@@ -577,8 +545,8 @@ LIMIT 1;";
                     ? $"DROP FUNCTION IF EXISTS `{routine.Name}`;"
                     : $"DROP PROCEDURE IF EXISTS `{routine.Name}`;";
 
-                await using var dropCmd = new MySqlCommand(dropSql, destination);
-                await dropCmd.ExecuteNonQueryAsync(cancellationToken);
+                await using var dropRoutineCmd = new MySqlCommand(dropSql, destination);
+                await dropRoutineCmd.ExecuteNonQueryAsync(cancellationToken);
 
                 await using var createDestCmd = new MySqlCommand(createStatement, destination);
                 await createDestCmd.ExecuteNonQueryAsync(cancellationToken);
@@ -729,6 +697,16 @@ LIMIT 1;";
             }
 
             return null;
+        }
+
+        private static async Task ExecuteTextNonQueryAsync(MySqlConnection connection, string sql, CancellationToken cancellationToken)
+        {
+            await using var cmd = new MySqlCommand(sql, connection)
+            {
+                CommandType = CommandType.Text
+            };
+
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
     }
 }
