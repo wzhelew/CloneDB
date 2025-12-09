@@ -186,70 +186,59 @@ namespace CloneDBManager
             switch (method)
             {
                 case DataCopyMethod.BulkInsert:
-                    await CopyWithBulkInsertAsync();
+                    await CopyWithBulkInsertAsync(source, destination, tableName, cancellationToken);
                     break;
                 case DataCopyMethod.BulkCopy:
                 default:
-                    var bulkCopied = await TryCopyWithBulkCopyAsync();
+                    var bulkCopied = await TryCopyWithBulkCopyAsync(source, destination, tableName, log, cancellationToken);
                     if (!bulkCopied)
                     {
-                        await CopyWithBulkInsertAsync();
+                        await CopyWithBulkInsertAsync(source, destination, tableName, cancellationToken);
                     }
                     break;
             }
+        }
 
-            async Task<bool> TryCopyWithBulkCopyAsync()
+        private static async Task<bool> TryCopyWithBulkCopyAsync(
+            MySqlConnection source,
+            MySqlConnection destination,
+            string tableName,
+            Action<string>? log,
+            CancellationToken cancellationToken)
+        {
+            await using var selectCmd = new MySqlCommand($"SELECT * FROM `{tableName}`;", source);
+            await using var reader = await selectCmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
+            if (!reader.HasRows)
             {
-                await using var selectCmd = new MySqlCommand($"SELECT * FROM `{tableName}`;", source);
-                await using var reader = await selectCmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
-                if (!reader.HasRows)
-                {
-                    return true;
-                }
+                return true;
             }
-            finally
+
+            try
             {
-                await FlushBatchAsync(destination, insertPrefix, valueRows, parameters, cancellationToken);
+                await CopyDataWithBulkCopyAsync(reader, destination, tableName, log, cancellationToken);
+                return true;
+            }
+            catch (Exception ex) when (ex is MySqlException || ex is InvalidOperationException)
+            {
+                log?.Invoke($"Bulk copy failed for '{tableName}', falling back to bulk insert: {ex.Message}");
+                return false;
             }
         }
 
-        private static async Task FlushBatchAsync(
+        private static async Task CopyWithBulkInsertAsync(
+            MySqlConnection source,
             MySqlConnection destination,
-            string insertPrefix,
-            List<string> valueRows,
-            List<MySqlParameter> parameters,
+            string tableName,
             CancellationToken cancellationToken)
         {
-            if (valueRows.Count == 0)
+            await using var selectCmd = new MySqlCommand($"SELECT * FROM `{tableName}`;", source);
+            await using var reader = await selectCmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
+            if (!reader.HasRows)
             {
                 return;
             }
 
-            var sql = insertPrefix + string.Join(", ", valueRows) + ";";
-
-                try
-                {
-                    await CopyDataWithBulkCopyAsync(reader, destination, tableName, log, cancellationToken);
-                    return true;
-                }
-                catch (Exception ex) when (ex is MySqlException || ex is InvalidOperationException)
-                {
-                    log?.Invoke($"Bulk copy failed for '{tableName}', falling back to bulk insert: {ex.Message}");
-                    return false;
-                }
-            }
-
-            async Task CopyWithBulkInsertAsync()
-            {
-                await using var selectCmd = new MySqlCommand($"SELECT * FROM `{tableName}`;", source);
-                await using var reader = await selectCmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
-                if (!reader.HasRows)
-                {
-                    return;
-                }
-
-                await CopyDataWithBulkInsertAsync(reader, destination, tableName, cancellationToken);
-            }
+            await CopyDataWithBulkInsertAsync(reader, destination, tableName, cancellationToken);
         }
 
         private static async Task CopyDataWithBulkCopyAsync(
