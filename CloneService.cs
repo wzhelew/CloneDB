@@ -431,6 +431,11 @@ namespace CloneDBManager
             var sourceSchema = await GetCurrentDatabaseAsync(source, cancellationToken);
             var destinationSchema = await GetCurrentDatabaseAsync(destination, cancellationToken);
 
+            const string triggerDetailsSql = @"SELECT ACTION_TIMING, EVENT_MANIPULATION, EVENT_OBJECT_TABLE, ACTION_STATEMENT
+FROM information_schema.triggers
+WHERE TRIGGER_SCHEMA = DATABASE() AND TRIGGER_NAME = @triggerName
+LIMIT 1;";
+
             foreach (var trigger in triggers)
             {
                 var triggerDetailsSql = $@"SELECT ACTION_TIMING, EVENT_MANIPULATION, EVENT_OBJECT_TABLE, ACTION_STATEMENT
@@ -469,8 +474,28 @@ LIMIT 1;";
                     // Trigger is missing on the destination; safe to ignore before recreation.
                 }
 
-                await using var createDestCmd = new MySqlCommand(createStatement, destination);
-                await createDestCmd.ExecuteNonQueryAsync(cancellationToken);
+                await using var dropCmd = new MySqlCommand($"DROP TRIGGER `{trigger}`;", destination);
+                try
+                {
+                    await dropCmd.ExecuteNonQueryAsync(cancellationToken);
+                }
+                catch (MySqlException ex) when (ex.Number == 1360)
+                {
+                    // Trigger is missing on the destination; safe to ignore before recreation.
+                }
+
+                await using var setSqlCmd = new MySqlCommand("SET @trigger_sql = @sql;", destination);
+                setSqlCmd.Parameters.AddWithValue("@sql", createStatement);
+                await setSqlCmd.ExecuteNonQueryAsync(cancellationToken);
+
+                await using var prepareCmd = new MySqlCommand("PREPARE trg_stmt FROM @trigger_sql;", destination);
+                await prepareCmd.ExecuteNonQueryAsync(cancellationToken);
+
+                await using var executeCmd = new MySqlCommand("EXECUTE trg_stmt;", destination);
+                await executeCmd.ExecuteNonQueryAsync(cancellationToken);
+
+                await using var deallocateCmd = new MySqlCommand("DEALLOCATE PREPARE trg_stmt;", destination);
+                await deallocateCmd.ExecuteNonQueryAsync(cancellationToken);
             }
         }
 
