@@ -638,8 +638,7 @@ LIMIT 1;";
             var builder = new MySqlConnectionStringBuilder(connectionString)
             {
                 AllowLoadLocalInfile = true,
-                AllowUserVariables = true,
-                IgnorePrepare = true
+                AllowUserVariables = true
             };
 
             return builder.ToString();
