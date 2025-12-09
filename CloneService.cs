@@ -431,10 +431,9 @@ namespace CloneDBManager
             var sourceSchema = await GetCurrentDatabaseAsync(source, cancellationToken);
             var destinationSchema = await GetCurrentDatabaseAsync(destination, cancellationToken);
 
-            const string triggerDetailsSql = @"SELECT t.ACTION_TIMING, t.EVENT_MANIPULATION, t.EVENT_OBJECT_TABLE, p.body
-FROM information_schema.triggers t
-JOIN mysql.proc p ON p.db = t.TRIGGER_SCHEMA AND p.name = t.TRIGGER_NAME AND p.type = 'TRIGGER'
-WHERE t.TRIGGER_SCHEMA = DATABASE() AND t.TRIGGER_NAME = @triggerName
+            const string triggerDetailsSql = @"SELECT ACTION_TIMING, EVENT_MANIPULATION, EVENT_OBJECT_TABLE, ACTION_STATEMENT
+FROM information_schema.triggers
+WHERE TRIGGER_SCHEMA = DATABASE() AND TRIGGER_NAME = @triggerName
 LIMIT 1;";
 
             foreach (var trigger in triggers)
