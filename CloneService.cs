@@ -462,7 +462,14 @@ LIMIT 1;";
                 createStatement = NormalizeTriggerCreateStatement(createStatement);
 
                 await using var dropCmd = new MySqlCommand($"DROP TRIGGER `{trigger}`;", destination);
-                await dropCmd.ExecuteNonQueryAsync(cancellationToken);
+                try
+                {
+                    await dropCmd.ExecuteNonQueryAsync(cancellationToken);
+                }
+                catch (MySqlException ex) when (ex.Number == 1360)
+                {
+                    // Trigger is missing on the destination; safe to ignore before recreation.
+                }
 
                 await using var setSqlCmd = new MySqlCommand("SET @trigger_sql = @sql;", destination);
                 setSqlCmd.Parameters.AddWithValue("@sql", createStatement);
