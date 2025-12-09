@@ -464,8 +464,18 @@ LIMIT 1;";
                 await using var dropCmd = new MySqlCommand($"DROP TRIGGER `{trigger}`;", destination);
                 await dropCmd.ExecuteNonQueryAsync(cancellationToken);
 
-                await using var createDestCmd = new MySqlCommand(createStatement, destination);
-                await createDestCmd.ExecuteNonQueryAsync(cancellationToken);
+                await using var setSqlCmd = new MySqlCommand("SET @trigger_sql = @sql;", destination);
+                setSqlCmd.Parameters.AddWithValue("@sql", createStatement);
+                await setSqlCmd.ExecuteNonQueryAsync(cancellationToken);
+
+                await using var prepareCmd = new MySqlCommand("PREPARE trg_stmt FROM @trigger_sql;", destination);
+                await prepareCmd.ExecuteNonQueryAsync(cancellationToken);
+
+                await using var executeCmd = new MySqlCommand("EXECUTE trg_stmt;", destination);
+                await executeCmd.ExecuteNonQueryAsync(cancellationToken);
+
+                await using var deallocateCmd = new MySqlCommand("DEALLOCATE PREPARE trg_stmt;", destination);
+                await deallocateCmd.ExecuteNonQueryAsync(cancellationToken);
             }
         }
 
