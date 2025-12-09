@@ -438,12 +438,12 @@ LIMIT 1;";
 
             foreach (var trigger in triggers)
             {
-                var triggerDetailsSql = $@"SELECT ACTION_TIMING, EVENT_MANIPULATION, EVENT_OBJECT_TABLE, ACTION_STATEMENT
+                var triggerDetailsQuery = $@"SELECT ACTION_TIMING, EVENT_MANIPULATION, EVENT_OBJECT_TABLE, ACTION_STATEMENT
 FROM information_schema.triggers
 WHERE TRIGGER_SCHEMA = DATABASE() AND TRIGGER_NAME = '{MySqlHelper.EscapeString(trigger)}'
 LIMIT 1;";
 
-                await using var createCmd = new MySqlCommand(triggerDetailsSql, source);
+                await using var createCmd = new MySqlCommand(triggerDetailsQuery, source);
                 await using var createReader = await createCmd.ExecuteReaderAsync(cancellationToken);
                 if (!await createReader.ReadAsync(cancellationToken))
                 {
@@ -463,6 +463,16 @@ LIMIT 1;";
 
                 var createStatement = $"CREATE TRIGGER {WrapName(trigger)} {actionTiming} {eventManipulation} ON {WrapName(eventTable)} FOR EACH ROW {body};";
                 createStatement = NormalizeTriggerCreateStatement(createStatement);
+
+                await using var dropCmd = new MySqlCommand($"DROP TRIGGER `{trigger}`;", destination);
+                try
+                {
+                    await dropCmd.ExecuteNonQueryAsync(cancellationToken);
+                }
+                catch (MySqlException ex) when (ex.Number == 1360)
+                {
+                    // Trigger is missing on the destination; safe to ignore before recreation.
+                }
 
                 await using var dropCmd = new MySqlCommand($"DROP TRIGGER `{trigger}`;", destination);
                 try
