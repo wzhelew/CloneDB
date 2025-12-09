@@ -431,6 +431,11 @@ namespace CloneDBManager
             var sourceSchema = await GetCurrentDatabaseAsync(source, cancellationToken);
             var destinationSchema = await GetCurrentDatabaseAsync(destination, cancellationToken);
 
+            const string triggerDetailsSql = @"SELECT ACTION_TIMING, EVENT_MANIPULATION, EVENT_OBJECT_TABLE, ACTION_STATEMENT
+FROM information_schema.triggers
+WHERE TRIGGER_SCHEMA = DATABASE() AND TRIGGER_NAME = @triggerName
+LIMIT 1;";
+
             foreach (var trigger in triggers)
             {
                 var triggerDetailsQuery = $@"SELECT ACTION_TIMING, EVENT_MANIPULATION, EVENT_OBJECT_TABLE, ACTION_STATEMENT
