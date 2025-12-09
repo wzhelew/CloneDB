@@ -555,7 +555,18 @@ LIMIT 1;";
         {
             var cleaned = StripVersionedComments(createStatement);
             cleaned = StripDefinerClause(cleaned);
-            return cleaned.Trim();
+            cleaned = cleaned.Trim();
+
+            // Some CREATE TRIGGER statements from older servers can lose the leading CREATE
+            // keyword after definer/version comment stripping, causing syntax errors that begin
+            // at "TRIGGER ...". Ensure the statement is explicitly prefixed with CREATE so the
+            // destination server accepts the definition.
+            if (!cleaned.StartsWith("CREATE", StringComparison.OrdinalIgnoreCase))
+            {
+                cleaned = $"CREATE {cleaned}";
+            }
+
+            return cleaned;
         }
 
         private static string StripVersionedComments(string sql)
