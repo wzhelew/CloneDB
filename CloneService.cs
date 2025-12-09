@@ -450,7 +450,7 @@ namespace CloneDBManager
 
                 createStatement = NormalizeTriggerCreateStatement(createStatement);
 
-                await using var dropCmd = new MySqlCommand($"DROP TRIGGER IF EXISTS `{trigger}`;", destination);
+                await using var dropCmd = new MySqlCommand($"DROP TRIGGER `{trigger}`;", destination);
                 await dropCmd.ExecuteNonQueryAsync(cancellationToken);
 
                 await using var setSqlCmd = new MySqlCommand("SET @trigger_sql = @sql;", destination);
